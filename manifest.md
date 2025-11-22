@@ -1,4 +1,4 @@
-This project uses data from the Duke course catalog/ ourse eval sites to automatically solve for the most best (or most optimal) course registration schedule.
+This project uses data from the Duke course catalog/ ourse eval sites to automatically solve for the most best (or most optimal) course registration schedule. See 256thFission/duke-sso-auth or 256thFission/duke-catalog-scraper for more info.
 
 
 Currrently, I have one large csv from the catalog that stores data about every class and each section. 
