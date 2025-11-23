@@ -30,13 +30,32 @@ Edit `config/pipeline_config.json`:
 {
   "missing_data_strategy": "neutral",  // or "conservative"
   "paths": {
-    "raw_catalog": "data/raw/sample_catalog.json",
-    "raw_evaluations_responses": "data/raw/sample_responses.csv",
-    "raw_evaluations_questions": "data/raw/sample_questions.csv",
+    "raw_catalog": "data/catalog.json",
+    "evaluations_dir": "data/course_evaluations",
     "output_processed": "data/processed/processed_courses.json"
   }
 }
 ```
+
+## Data Directory Structure
+
+```
+data/
+├── catalog.json                    # Course catalog (single large JSON)
+├── course_evaluations/             # Evaluations organized by department
+│   ├── AAAS/
+│   │   ├── evaluations_questions.csv
+│   │   ├── evaluations_responses.csv
+│   │   ├── evaluations_free_text.csv
+│   │   └── reports/*.html
+│   ├── COMPSCI/
+│   │   └── ...
+│   └── [other departments]/
+└── processed/
+    └── processed_courses.json      # Pipeline output
+```
+
+The pipeline automatically scans all department directories and combines their evaluation data.
 
 ## Missing Data Strategies
 
@@ -71,15 +90,30 @@ See `data/processed/processed_courses.json` for the final output structure with:
 
 ```
 duke-schedule-solver/
-├── config/                   # Configuration files
+├── config/                        # Configuration files
 ├── data/
-│   ├── raw/                 # Input data (catalog JSON, evaluation CSVs)
-│   └── processed/           # Output processed JSON
+│   ├── catalog.json              # Course catalog
+│   ├── course_evaluations/       # Evaluations by department
+│   └── processed/                # Pipeline output
 ├── scripts/
-│   ├── pipeline/            # ETL pipeline stages
-│   └── run_pipeline.py      # Main orchestrator
-└── DATA_PREPARATION_PLAN.md # Full technical specification
+│   ├── pipeline/                 # ETL pipeline stages
+│   └── run_pipeline.py           # Main orchestrator
+└── DATA_PREPARATION_PLAN.md      # Full technical specification
 ```
+
+## Using Your Data
+
+1. Place your course catalog JSON at `data/catalog.json`
+2. Place your course evaluations in `data/course_evaluations/` (organized by department)
+3. Update paths in `config/pipeline_config.json` if needed
+4. Run `python3 scripts/run_pipeline.py`
+
+The pipeline will automatically:
+- Scan all department directories
+- Load all `evaluations_questions.csv` files
+- Combine evaluation data from all departments
+- Match evaluations to catalog sections
+- Generate `data/processed/processed_courses.json`
 
 ## Documentation
 
