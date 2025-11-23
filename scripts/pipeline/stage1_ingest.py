@@ -8,7 +8,7 @@ from typing import List, Dict
 def load_catalog(catalog_path: str) -> List[Dict]:
     """Load catalog JSON file."""
     print(f"Loading catalog from {catalog_path}")
-    with open(catalog_path, 'r') as f:
+    with open(catalog_path, 'r', encoding='utf-8') as f:
         catalog = json.load(f)
     print(f"Loaded {len(catalog)} catalog entries")
     return catalog
