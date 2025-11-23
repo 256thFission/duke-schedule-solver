@@ -7,6 +7,25 @@ def normalize_instructor_name(name: str) -> str:
     return ' '.join(name.lower().split())
 
 
+def normalize_section_number(section: str) -> str:
+    """
+    Normalize section number for matching.
+
+    Converts "001" and "01" and "1" all to "1" for comparison.
+    Preserves non-numeric sections like "01A".
+    """
+    if not section:
+        return ""
+
+    # Try to convert to int and back to strip leading zeros
+    # If it fails (has letters), return as-is
+    try:
+        return str(int(section))
+    except ValueError:
+        # Has letters, just strip and lowercase
+        return section.strip().upper()
+
+
 def match_evaluation_to_section(eval_record: Dict, sections: List[Dict]) -> Dict:
     """
     Find matching section for evaluation record.
@@ -21,13 +40,16 @@ def match_evaluation_to_section(eval_record: Dict, sections: List[Dict]) -> Dict
     TODO: Add fuzzy instructor matching, cross-listing support
     """
     eval_course = eval_record['course_id']
-    eval_section = eval_record['section']
+    eval_section = normalize_section_number(eval_record['section'])
     eval_instructor = normalize_instructor_name(eval_record['instructor'])
 
     for section in sections:
-        # Simple exact match for now
+        # Normalize section numbers for comparison
+        section_number = normalize_section_number(section['section'])
+
+        # Match on course code and section number
         if (section['course_id'] == eval_course and
-            section['section'] == eval_section):
+            section_number == eval_section):
 
             # Check instructor match (if not unknown)
             if section['instructor']['is_unknown']:
