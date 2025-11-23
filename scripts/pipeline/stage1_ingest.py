@@ -1,6 +1,7 @@
 """Stage 1: Ingest raw data files."""
 import json
 import csv
+from pathlib import Path
 from typing import List, Dict
 
 
@@ -13,24 +14,25 @@ def load_catalog(catalog_path: str) -> List[Dict]:
     return catalog
 
 
-def load_evaluations(responses_path: str, questions_path: str, question_mapping: Dict[str, str]) -> List[Dict]:
+def load_department_evaluations(dept_dir: Path, question_mapping: Dict[str, str]) -> List[Dict]:
     """
-    Load evaluation CSV files and extract metrics.
+    Load evaluations from a single department directory.
 
     Args:
-        responses_path: Path to responses CSV
-        questions_path: Path to questions CSV (condensed format)
+        dept_dir: Path to department directory
         question_mapping: Maps question numbers to metric names
 
     Returns:
-        List of evaluation records with extracted metrics
+        List of evaluation records from this department
     """
-    print(f"Loading evaluations from {responses_path}")
+    questions_file = dept_dir / 'evaluations_questions.csv'
 
-    # Load questions CSV (condensed format - one row per question)
+    if not questions_file.exists():
+        return []
+
     evaluations = {}
 
-    with open(questions_path, 'r', encoding='utf-8') as f:
+    with open(questions_file, 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
         for row in reader:
             key = (row['filename'], row['course'], row['instructor'])
@@ -56,12 +58,46 @@ def load_evaluations(responses_path: str, questions_path: str, question_mapping:
                         'median': float(row['median']) if row['median'] else float(row['mean']),
                         'std': float(row['std']) if row['std'] else 0.0,
                         'response_rate': row['response_rate'],
-                        'sample_size': row.get('total_responses', 0)
+                        'sample_size': int(row.get('total_responses', 0)) if row.get('total_responses') else 0
                     }
 
-    result = list(evaluations.values())
-    print(f"Loaded {len(result)} evaluation records")
-    return result
+    return list(evaluations.values())
+
+
+def load_all_evaluations(evaluations_dir: str, question_mapping: Dict[str, str]) -> List[Dict]:
+    """
+    Load evaluations from all department directories.
+
+    Args:
+        evaluations_dir: Path to course_evaluations directory
+        question_mapping: Maps question numbers to metric names
+
+    Returns:
+        Combined list of all evaluation records
+    """
+    print(f"Scanning department directories in {evaluations_dir}")
+
+    evaluations_path = Path(evaluations_dir)
+
+    if not evaluations_path.exists():
+        print(f"Warning: Evaluations directory not found: {evaluations_dir}")
+        return []
+
+    all_evaluations = []
+    departments = [d for d in evaluations_path.iterdir() if d.is_dir()]
+
+    print(f"Found {len(departments)} departments")
+
+    for dept_dir in departments:
+        dept_name = dept_dir.name
+        dept_evals = load_department_evaluations(dept_dir, question_mapping)
+
+        if dept_evals:
+            print(f"  {dept_name}: {len(dept_evals)} evaluation records")
+            all_evaluations.extend(dept_evals)
+
+    print(f"Total evaluation records loaded: {len(all_evaluations)}")
+    return all_evaluations
 
 
 def ingest(config: Dict) -> Dict:
@@ -75,10 +111,12 @@ def ingest(config: Dict) -> Dict:
     with open('config/question_mapping.json', 'r') as f:
         question_mapping = json.load(f)
 
+    # Load catalog
     catalog = load_catalog(config['paths']['raw_catalog'])
-    evaluations = load_evaluations(
-        config['paths']['raw_evaluations_responses'],
-        config['paths']['raw_evaluations_questions'],
+
+    # Load evaluations from all departments
+    evaluations = load_all_evaluations(
+        config['paths']['evaluations_dir'],
         question_mapping
     )
 
