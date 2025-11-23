@@ -13,7 +13,7 @@ Data Sourcing: 256thFission/duke-catalog-scraper - Selenium/Soup based scraper.
 ---
 
 ## 2. Input Data Specifications
-The pipeline ingests two distinct data formats. The JSON Catalog provides structural data (times, requirements), while the CSV Evaluations provide qualitative rankings.
+The pipeline ingests a few distinct data formats. The JSON Catalog provides structural data (times, requirements), while the CSV Evaluations provide qualitative rankings.
 
 ---
 
@@ -21,6 +21,7 @@ The pipeline ingests two distinct data formats. The JSON Catalog provides struct
 **Source:** Scraped from Duke public/private course search.  
 **Format:** JSON Array of Objects.  
 
+Please view sample_catalog.json 
 **Key Advantage:** Contains crse_attr_value (Degree Requirements) and structured instructors lists which are absent or malformed in CSV exports.
 
 **Sample JSON Structure:**
@@ -62,6 +63,10 @@ The pipeline ingests two distinct data formats. The JSON Catalog provides struct
 ### 2.2. Input B: Course Evaluations (CSV)
 **Source:** Departmental exports.  
 **Format:** Long-format CSV (One row per Response Option per Question per Course).
+
+
+You can view this on sam sample_free_text.csv, sample_questions.csv, and sample_responses.csv. 
+
 
 **Sample CSV Structure:**
 filename,course,instructor,question_number,mean,median,...
