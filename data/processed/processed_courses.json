@@ -1,0 +1,306 @@
+{
+  "metadata": {
+    "generated_at": "2025-11-23T23:02:58.688935",
+    "missing_data_strategy": "neutral",
+    "total_courses": 3,
+    "total_sections": 3
+  },
+  "courses": [
+    {
+      "course_id": "AAAS-102",
+      "subject": "AAAS",
+      "catalog_nbr": "102",
+      "title": "Introduction to African American Studies",
+      "sections": [
+        {
+          "course_id": "AAAS-102",
+          "subject": "AAAS",
+          "catalog_nbr": "102",
+          "section": "01",
+          "class_nbr": 7370,
+          "term": "1950",
+          "title": "Introduction to African American Studies",
+          "instructor": {
+            "name": "Tsitsi Jaji",
+            "email": "tsitsi.jaji@duke.edu",
+            "is_unknown": false
+          },
+          "schedule": {
+            "days": [
+              "Tu",
+              "Th"
+            ],
+            "start_time": "10:05",
+            "end_time": "11:20",
+            "location": "Friedl Bldg 240"
+          },
+          "enrollment": {
+            "capacity": 20,
+            "enrolled": 5,
+            "available": 15
+          },
+          "metrics": {
+            "intellectual_stimulation": {
+              "mean": 3.0,
+              "median": 3.0,
+              "std": 1.0,
+              "sample_size": 0,
+              "response_rate": "",
+              "response_rate_float": 0.0,
+              "data_source": "population_mean",
+              "confidence": "none"
+            },
+            "overall_course_quality": {
+              "mean": 3.0,
+              "median": 3.0,
+              "std": 1.0,
+              "sample_size": 0,
+              "response_rate": "",
+              "response_rate_float": 0.0,
+              "data_source": "population_mean",
+              "confidence": "none"
+            },
+            "overall_instructor_quality": {
+              "mean": 3.0,
+              "median": 3.0,
+              "std": 1.0,
+              "sample_size": 0,
+              "response_rate": "",
+              "response_rate_float": 0.0,
+              "data_source": "population_mean",
+              "confidence": "none"
+            },
+            "course_difficulty": {
+              "mean": 3.0,
+              "median": 3.0,
+              "std": 1.0,
+              "sample_size": 0,
+              "response_rate": "",
+              "response_rate_float": 0.0,
+              "data_source": "population_mean",
+              "confidence": "none"
+            },
+            "hours_per_week": {
+              "mean": 3.0,
+              "median": 3.0,
+              "std": 1.0,
+              "sample_size": 0,
+              "response_rate": "",
+              "response_rate_float": 0.0,
+              "data_source": "population_mean",
+              "confidence": "none"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "course_id": "AAAS-103",
+      "subject": "AAAS",
+      "catalog_nbr": "103",
+      "title": "Introduction to African Studies (DS3 or DS4)",
+      "sections": [
+        {
+          "course_id": "AAAS-103",
+          "subject": "AAAS",
+          "catalog_nbr": "103",
+          "section": "01",
+          "class_nbr": 7372,
+          "term": "1950",
+          "title": "Introduction to African Studies (DS3 or DS4)",
+          "instructor": {
+            "name": "Charlie D Piot",
+            "email": "charles.piot@duke.edu",
+            "is_unknown": false
+          },
+          "schedule": {
+            "days": [
+              "Tu",
+              "Th"
+            ],
+            "start_time": "13:25",
+            "end_time": "14:40",
+            "location": "Perkins 217"
+          },
+          "enrollment": {
+            "capacity": 60,
+            "enrolled": 20,
+            "available": 40
+          },
+          "metrics": {
+            "intellectual_stimulation": {
+              "mean": 3.0,
+              "median": 3.0,
+              "std": 1.0,
+              "sample_size": 0,
+              "response_rate": "",
+              "response_rate_float": 0.0,
+              "data_source": "population_mean",
+              "confidence": "none"
+            },
+            "overall_course_quality": {
+              "mean": 3.0,
+              "median": 3.0,
+              "std": 1.0,
+              "sample_size": 0,
+              "response_rate": "",
+              "response_rate_float": 0.0,
+              "data_source": "population_mean",
+              "confidence": "none"
+            },
+            "overall_instructor_quality": {
+              "mean": 3.0,
+              "median": 3.0,
+              "std": 1.0,
+              "sample_size": 0,
+              "response_rate": "",
+              "response_rate_float": 0.0,
+              "data_source": "population_mean",
+              "confidence": "none"
+            },
+            "course_difficulty": {
+              "mean": 3.0,
+              "median": 3.0,
+              "std": 1.0,
+              "sample_size": 0,
+              "response_rate": "",
+              "response_rate_float": 0.0,
+              "data_source": "population_mean",
+              "confidence": "none"
+            },
+            "hours_per_week": {
+              "mean": 3.0,
+              "median": 3.0,
+              "std": 1.0,
+              "sample_size": 0,
+              "response_rate": "",
+              "response_rate_float": 0.0,
+              "data_source": "population_mean",
+              "confidence": "none"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "course_id": "AAAS-128CN",
+      "subject": "AAAS",
+      "catalog_nbr": "128CN",
+      "title": "Black Psychology",
+      "sections": [
+        {
+          "course_id": "AAAS-128CN",
+          "subject": "AAAS",
+          "catalog_nbr": "128CN",
+          "section": "01",
+          "class_nbr": 7540,
+          "term": "1950",
+          "title": "Black Psychology",
+          "instructor": {
+            "name": "Phia Shante Salter",
+            "email": "phia.salter@duke.edu",
+            "is_unknown": false
+          },
+          "schedule": {
+            "days": [
+              "Mo",
+              "Fr"
+            ],
+            "start_time": "13:25",
+            "end_time": "14:40",
+            "location": "East Duke 108"
+          },
+          "enrollment": {
+            "capacity": 30,
+            "enrolled": 12,
+            "available": 18
+          },
+          "metrics": {
+            "intellectual_stimulation": {
+              "mean": 3.0,
+              "median": 3.0,
+              "std": 1.0,
+              "sample_size": 0,
+              "response_rate": "",
+              "response_rate_float": 0.0,
+              "data_source": "population_mean",
+              "confidence": "none"
+            },
+            "overall_course_quality": {
+              "mean": 3.0,
+              "median": 3.0,
+              "std": 1.0,
+              "sample_size": 0,
+              "response_rate": "",
+              "response_rate_float": 0.0,
+              "data_source": "population_mean",
+              "confidence": "none"
+            },
+            "overall_instructor_quality": {
+              "mean": 3.0,
+              "median": 3.0,
+              "std": 1.0,
+              "sample_size": 0,
+              "response_rate": "",
+              "response_rate_float": 0.0,
+              "data_source": "population_mean",
+              "confidence": "none"
+            },
+            "course_difficulty": {
+              "mean": 3.0,
+              "median": 3.0,
+              "std": 1.0,
+              "sample_size": 0,
+              "response_rate": "",
+              "response_rate_float": 0.0,
+              "data_source": "population_mean",
+              "confidence": "none"
+            },
+            "hours_per_week": {
+              "mean": 3.0,
+              "median": 3.0,
+              "std": 1.0,
+              "sample_size": 0,
+              "response_rate": "",
+              "response_rate_float": 0.0,
+              "data_source": "population_mean",
+              "confidence": "none"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "statistics": {
+    "intellectual_stimulation": {
+      "mean": 3.0,
+      "std": 1.0,
+      "median": 3.0,
+      "penalty_score": 1.5
+    },
+    "overall_course_quality": {
+      "mean": 3.0,
+      "std": 1.0,
+      "median": 3.0,
+      "penalty_score": 1.5
+    },
+    "overall_instructor_quality": {
+      "mean": 3.0,
+      "std": 1.0,
+      "median": 3.0,
+      "penalty_score": 1.5
+    },
+    "course_difficulty": {
+      "mean": 3.0,
+      "std": 1.0,
+      "median": 3.0,
+      "penalty_score": 1.5
+    },
+    "hours_per_week": {
+      "mean": 3.0,
+      "std": 1.0,
+      "median": 3.0,
+      "penalty_score": 1.5
+    }
+  }
+}

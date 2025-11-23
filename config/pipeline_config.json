@@ -1,0 +1,9 @@
+{
+  "missing_data_strategy": "neutral",
+  "paths": {
+    "raw_catalog": "data/raw/sample_catalog.json",
+    "raw_evaluations_responses": "data/raw/sample_responses.csv",
+    "raw_evaluations_questions": "data/raw/sample_questions.csv",
+    "output_processed": "data/processed/processed_courses.json"
+  }
+}
