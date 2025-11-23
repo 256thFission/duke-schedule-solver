@@ -1,4 +1,30 @@
-Project Manifest: Duke Course Schedule Optimizer1. Project OverviewThis utility aggregates Duke University course catalog data and historical course evaluation metrics to algorithmically generate optimal course registration schedules.Goal: Maximize schedule utility based on user constraints (time, major requirements) and quality metrics (instructor ratings, grading difficulty).1.1. Repository EcosystemCore Logic: [Current Repo] - Data ingestion, merging, and optimization solver.Authentication: 256thFission/duke-sso-auth - Handles Shibboleth/NetID authentication flow.Data Sourcing: 256thFission/duke-catalog-scraper - Selenium/Soup based scraper.2. Input Data SpecificationsThe pipeline ingests two distinct data formats. The JSON Catalog provides structural data (times, requirements), while the CSV Evaluations provide qualitative rankings.2.1. Input A: Raw Course Catalog (JSON)Source: Scraped from Duke public/private course search.Format: JSON Array of Objects.Key Advantage: Contains crse_attr_value (Degree Requirements) and structured instructors lists which are absent or malformed in CSV exports.Sample JSON Structure:{
+# Project Manifest: Duke Course Schedule Optimizer
+
+## 1. Project Overview
+This utility aggregates Duke University course catalog data and historical course evaluation metrics to algorithmically generate optimal course registration schedules.
+
+**Goal:** Maximize schedule utility based on user constraints (time, major requirements) and quality metrics (instructor ratings, grading difficulty).
+
+### 1.1. Repository Ecosystem
+Core Logic: [Current Repo] - Data ingestion, merging, and optimization solver.  
+Authentication: 256thFission/duke-sso-auth - Handles Shibboleth/NetID authentication flow.  
+Data Sourcing: 256thFission/duke-catalog-scraper - Selenium/Soup based scraper.
+
+---
+
+## 2. Input Data Specifications
+The pipeline ingests two distinct data formats. The JSON Catalog provides structural data (times, requirements), while the CSV Evaluations provide qualitative rankings.
+
+---
+
+### 2.1. Input A: Raw Course Catalog (JSON)
+**Source:** Scraped from Duke public/private course search.  
+**Format:** JSON Array of Objects.  
+
+**Key Advantage:** Contains crse_attr_value (Degree Requirements) and structured instructors lists which are absent or malformed in CSV exports.
+
+**Sample JSON Structure:**
+{
     "class_nbr": 7370,
     "subject": "AAAS",
     "catalog_nbr": "102",
@@ -16,6 +42,27 @@ Project Manifest: Duke Course Schedule Optimizer1. Project OverviewThis utility 
         }
     ]
 }
-Key Fields to Extract:| Field | JSON Path | Notes || :--- | :--- | :--- || class_nbr | class_nbr | Primary Key (Integer). || code | subject + catalog_nbr | Concatenate (e.g., AAAS 102). || instructors | instructors[].name | List of strings. Varies per section. || time_data | meetings[0] | Contains days, start_time, end_time. || requirements | crse_attr_value | Comma-separated string. Needs parsing. |Dirty Data Notes (JSON):meetings is a list; assume index 0 is the primary lecture.crse_attr_value mixes admin codes (BLTN-U) with requirements (USE-SS). Needs filtering.2.2. Input B: Course Evaluations (CSV)Source: Departmental exports.Format: Long-format CSV (One row per Response Option per Question per Course).Sample CSV Structure:filename,course,instructor,question_number,mean,median,...
+
+**Key Fields to Extract:**
+
+| Field | JSON Path | Notes |
+| :--- | :--- | :--- |
+| class_nbr | class_nbr | Primary Key (Integer). |
+| code | subject + catalog_nbr | Concatenate (e.g., AAAS 102). |
+| instructors | instructors[].name | List of strings. Varies per section. |
+| time_data | meetings[0] | Contains days, start_time, end_time. |
+| requirements | crse_attr_value | Comma-separated string. Needs parsing. |
+
+**Dirty Data Notes (JSON):**
+- meetings is a list; assume index 0 is the primary lecture.  
+- crse_attr_value mixes administrative codes (BLTN-U) with requirements (USE-SS). Needs filtering.
+
+---
+
+### 2.2. Input B: Course Evaluations (CSV)
+**Source:** Departmental exports.  
+**Format:** Long-format CSV (One row per Response Option per Question per Course).
+
+**Sample CSV Structure:**
+filename,course,instructor,question_number,mean,median,...
 AADS.html,AADS-201-01.AMES-276-01,Jaeyeon Yoo,3,4.50,4.50,...
-Key Fields:course: Composite Key. Contains all cross-listed aliases delimited by periods/spaces (e.g., AADS-201-01.AMES-276-01).instructor: Name string. Format differs from JSON (e.g., "Yoo, Jaeyeon" vs "Jaeyeon Yoo").question_number: Integer ID of the question (1, 2, 3...).mean: Float aggregate score.3. Target Intermediate Data Model (IDM)The pre-processor must transform the inputs into a single Augmented Section DataFrame. This "Clean Format" is what the optimization solver consumes.3.1. Schema DefinitionFieldTypeDescriptionSourceidIntUnique Section ID (class_nbr).Catalog JSONcodeStringCanonical name (e.g., AAAS 102).Catalog JSONinstructorsList[Str]List of normalized names.Catalog JSONtime_start_minIntMeeting start in minutes from midnight.Calculatedtime_end_minIntMeeting end in minutes from midnight.Calculateddays_maskIntBitmask (M=1, T=2, W=4, Th=8, F=16).CalculatedattributesSet[Str]Parsed reqs (e.g., {'SS', 'QS', 'CCI'}).Calculatedeval_q1_meanFloatInstructor-Specific Score for Q1.Composite Mergeeval_q2_meanFloatInstructor-Specific Score for Q2.Composite Mergeeval_q3_meanFloatInstructor-Specific Score for Q3.Composite Mergeeval_sourceEnumExact, Course_Avg, Dept_Avg (Traceability).Calculated4. Transformation Logic (ETL)4.1. Sub-Routine: Name NormalizationCritically required to link JSON instructors to CSV instructors.Function: normalize_name(raw_str) -> strLogic: Lowercase -> Strip punctuation -> Tokenize -> Sort tokens -> Join.Tsitsi Jaji -> jaji tsitsiJaji, Tsitsi -> jaji tsitsi4.2. Step 1: Evaluation Pivoting (The Map Builder)We convert the Long-Format CSV into a Lookup Dictionary keyed by (Course Alias, Instructor).Filter: Keep only quantitative questions (e.g., Q3 "Intellectual Stim").Group: By course (raw string) AND instructor.Aggregate: Calculate weighted mean/median.Explode Aliases:Parse course string AADS-201-01.AMES-276-01.Split into ['AADS 201', 'AMES 276'].Normalize Instructor name.Store: LookupMap[("AADS 201", "jaji tsitsi")] = {Scores...}Store: LookupMap[("AMES 276", "jaji tsitsi")] = {Scores...}4.3. Step 2: JSON ParsingIterate the JSON Array.Time Normalization:start_time: "10.05.00..." -> 10*60 + 5 = 605.days: "TuTh" -> 2 | 8 = 10.Attribute Parsing:Split crse_attr_value. Strip prefixes (e.g., TRIN-, USE-).Store distinct codes: {'IJ', 'CZ', 'SS'}.4.4. Step 3: The Composite MergeFor every section in the JSON Catalog:Identify Keys: Get Course Code and list of Normalized Instructors.Primary Lookup: Check LookupMap for (Course Code, Instructor_A).If multiple instructors exist, average their retrieved scores.Fallback Logic (Cold Start):If Primary Lookup fails (New Instructor), search LookupMap for (Course Code) only (Historic Course Avg).If that fails, use Departmental Average.Tag: Set eval_source to Exact, Course_Hist, or Dept_Fill.5. Implementation PlanFile Structure:src/etl/normalizers.py: Logic for normalize_name, parse_time.src/etl/ingestors.py: Logic to load JSON and CSV.src/etl/builder.py: Logic to build the LookupMap and perform the Merge.src/main.py: CLI entry point.Output Artifact:processed_schedule.parquet: A compressed, typed dataframe ready for the optimization solver.
