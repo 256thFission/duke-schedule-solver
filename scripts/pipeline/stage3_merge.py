@@ -165,8 +165,23 @@ def merge(normalized_data: Dict) -> List[Dict]:
             section['metrics'] = course_only_agg[course_id]
             matched_count += 1
 
+    # Count match types by checking data_source in metrics
+    instructor_matches = 0
+    course_only_matches = 0
+
+    for section in sections:
+        if section['metrics']:
+            # Check data_source from first metric
+            first_metric = next(iter(section['metrics'].values()), {})
+            source = first_metric.get('data_source', '')
+            if source == 'evaluations':
+                instructor_matches += 1
+            elif source == 'course_aggregate':
+                course_only_matches += 1
+
     print(f"Matched {matched_count}/{len(sections)} sections to historical evaluations")
-    print(f"  - Course+Instructor matches: {len([s for s in sections if s['metrics'].get('data_source') == 'evaluations'])}")
-    print(f"  - Course-only matches: {len([s for s in sections if s['metrics'].get('data_source') == 'course_aggregate'])}")
+    print(f"  - Course+Instructor matches: {instructor_matches}")
+    print(f"  - Course-only matches: {course_only_matches}")
+    print(f"  - No match (will use population mean): {len(sections) - matched_count}")
 
     return sections
