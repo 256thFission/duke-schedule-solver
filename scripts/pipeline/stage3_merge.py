@@ -193,27 +193,112 @@ def merge(normalized_data: Dict) -> List[Dict]:
     course_instructor_agg = aggregate_evaluations(evaluations)
     course_only_agg = aggregate_course_only(evaluations)
 
-    # Match to sections
+    # Debugging: Show top courses and instructors
+    print("\n--- Top 10 Most-Evaluated Courses ---")
+    course_eval_counts = {}
+    for course_id, metrics in course_only_agg.items():
+        first_metric = next(iter(metrics.values()), {})
+        course_eval_counts[course_id] = first_metric.get('num_evaluations_aggregated', 0)
+
+    for course_id, count in sorted(course_eval_counts.items(), key=lambda x: x[1], reverse=True)[:10]:
+        print(f"  {course_id}: {count} evaluations")
+
+    print("\n--- Top 10 Instructors by Evaluations ---")
+    instructor_eval_counts = {}
+    for (course_id, instructor), metrics in course_instructor_agg.items():
+        if instructor not in instructor_eval_counts:
+            instructor_eval_counts[instructor] = 0
+        first_metric = next(iter(metrics.values()), {})
+        instructor_eval_counts[instructor] += first_metric.get('num_evaluations_aggregated', 0)
+
+    for instructor, count in sorted(instructor_eval_counts.items(), key=lambda x: x[1], reverse=True)[:10]:
+        print(f"  {instructor}: {count} evaluations")
+
+    # Match to sections with detailed tracking
     matched_count = 0
+    match_failures = {
+        'course_not_in_evals': [],
+        'instructor_not_found': [],
+        'unknown_instructor': []
+    }
+    successful_matches = []
 
     for section in sections:
         section['metrics'] = {}
         course_id = normalize_course_code(section['course_id'])
+        original_course_id = section['course_id']
+        instructor_name = section['instructor']['name']
 
         # Try course+instructor match first
         if not section['instructor']['is_unknown']:
-            instructor = normalize_instructor_name(section['instructor']['name'])
+            instructor = normalize_instructor_name(instructor_name)
             key = (course_id, instructor)
 
             if key in course_instructor_agg:
                 section['metrics'] = course_instructor_agg[key]
                 matched_count += 1
+                successful_matches.append({
+                    'type': 'course+instructor',
+                    'catalog_course': original_course_id,
+                    'normalized_course': course_id,
+                    'catalog_instructor': instructor_name,
+                    'normalized_instructor': instructor,
+                    'num_evals': next(iter(section['metrics'].values()), {}).get('num_evaluations_aggregated', 0)
+                })
                 continue
+            else:
+                # Track why it failed
+                if course_id not in course_only_agg:
+                    match_failures['course_not_in_evals'].append({
+                        'course': original_course_id,
+                        'normalized': course_id,
+                        'instructor': instructor_name
+                    })
+                else:
+                    match_failures['instructor_not_found'].append({
+                        'course': original_course_id,
+                        'instructor': instructor_name,
+                        'normalized_instructor': instructor
+                    })
+        else:
+            match_failures['unknown_instructor'].append({
+                'course': original_course_id
+            })
 
         # Fall back to course-only match
         if course_id in course_only_agg:
             section['metrics'] = course_only_agg[course_id]
             matched_count += 1
+            successful_matches.append({
+                'type': 'course_only',
+                'catalog_course': original_course_id,
+                'normalized_course': course_id,
+                'num_evals': next(iter(section['metrics'].values()), {}).get('num_evaluations_aggregated', 0)
+            })
+
+    # Print matching results
+    print("\n--- Sample Successful Matches ---")
+    for match in successful_matches[:5]:
+        if match['type'] == 'course+instructor':
+            print(f"  ✓ {match['catalog_course']} ({match['normalized_course']}) + {match['catalog_instructor']}")
+            print(f"    → Matched {match['num_evals']} evaluations")
+        else:
+            print(f"  ✓ {match['catalog_course']} ({match['normalized_course']}) [course-only]")
+            print(f"    → Matched {match['num_evals']} evaluations")
+
+    print("\n--- Sample Match Failures ---")
+    print(f"Course not in evaluations ({len(match_failures['course_not_in_evals'])} total):")
+    for failure in match_failures['course_not_in_evals'][:5]:
+        print(f"  ✗ {failure['course']} → {failure['normalized']} (Instructor: {failure['instructor']})")
+
+    print(f"\nInstructor not found ({len(match_failures['instructor_not_found'])} total):")
+    for failure in match_failures['instructor_not_found'][:5]:
+        print(f"  ✗ {failure['course']} with {failure['instructor']}")
+        print(f"    → Normalized: {failure['normalized_instructor']}")
+
+    print(f"\nUnknown instructor ({len(match_failures['unknown_instructor'])} total):")
+    for failure in match_failures['unknown_instructor'][:3]:
+        print(f"  ✗ {failure['course']}")
 
     # Count match types by checking data_source in metrics
     instructor_matches = 0
@@ -229,9 +314,14 @@ def merge(normalized_data: Dict) -> List[Dict]:
             elif source == 'course_aggregate':
                 course_only_matches += 1
 
-    print(f"Matched {matched_count}/{len(sections)} sections to historical evaluations")
+    print(f"\n--- Final Match Statistics ---")
+    print(f"Matched {matched_count}/{len(sections)} sections to historical evaluations ({matched_count/len(sections)*100:.1f}%)")
     print(f"  - Course+Instructor matches: {instructor_matches}")
     print(f"  - Course-only matches: {course_only_matches}")
     print(f"  - No match (will use population mean): {len(sections) - matched_count}")
+    print(f"\nMatch failure breakdown:")
+    print(f"  - Course not in evaluations: {len(match_failures['course_not_in_evals'])}")
+    print(f"  - Instructor not found (but course exists): {len(match_failures['instructor_not_found'])}")
+    print(f"  - Unknown instructor (used course-only if available): {len(match_failures['unknown_instructor'])}")
 
     return sections
