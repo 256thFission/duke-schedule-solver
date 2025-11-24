@@ -78,7 +78,9 @@ def normalize_evaluations(evaluations: List[Dict]) -> List[Dict]:
                 metric_data['sample_size'] = utils.extract_sample_size(metric_data['response_rate'])
 
         normalized_eval = {
-            'course_id': course_info['primary'],
+            'course_id': eval_record.get('course_code', course_info['primary']),
+            'course_title': eval_record.get('course_title', ''),
+            'cross_listed_codes': eval_record.get('cross_listed_codes', []),
             'section': course_info['section'],
             'semester': eval_record['semester'],
             'instructor': eval_record['instructor'],

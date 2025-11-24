@@ -1,7 +1,8 @@
 """Stage 3: Merge evaluations with catalog sections."""
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 from collections import defaultdict
 import statistics
+import difflib
 
 
 def normalize_instructor_name(name: str) -> str:
@@ -65,6 +66,52 @@ def fuzzy_match_instructor(name1: str, name2: str) -> bool:
     return first1 == first2
 
 
+def normalize_title(title: str) -> str:
+    """
+    Normalize course title for fuzzy matching.
+
+    - Lowercase
+    - Remove special characters
+    - Remove common words (intro, introduction, to, the, and)
+    """
+    if not title:
+        return ""
+
+    # Lowercase
+    title = title.lower()
+
+    # Remove special characters
+    import re
+    title = re.sub(r'[^a-z0-9\s]', ' ', title)
+
+    # Remove common words
+    stop_words = {'intro', 'introduction', 'to', 'the', 'and', 'of', 'in', 'for', 'an', 'a'}
+    words = title.split()
+    words = [w for w in words if w not in stop_words]
+
+    return ' '.join(words)
+
+
+def fuzzy_match_title(title1: str, title2: str, threshold: float = 0.75) -> bool:
+    """
+    Fuzzy match course titles using sequence matching.
+
+    Args:
+        title1: First title (normalized)
+        title2: Second title (normalized)
+        threshold: Similarity threshold (0-1), default 0.75
+
+    Returns:
+        True if titles are similar enough
+    """
+    if not title1 or not title2:
+        return False
+
+    # Use SequenceMatcher for fuzzy string matching
+    similarity = difflib.SequenceMatcher(None, title1, title2).ratio()
+    return similarity >= threshold
+
+
 def normalize_course_code(course_code: str) -> str:
     """
     Normalize course code for fuzzy matching.
@@ -113,6 +160,49 @@ def normalize_course_code(course_code: str) -> str:
     number = str(int(number)) if number.isdigit() else number
 
     return f"{subject}-{number}"
+
+
+def build_cross_listing_index(evaluations: List[Dict]) -> Dict[str, List[Tuple[str, str, List[str]]]]:
+    """
+    Build index of cross-listed courses from evaluations.
+
+    Returns:
+        Dict mapping course_code -> list of (primary_code, instructor, cross_listed_codes)
+    """
+    cross_listing_index = defaultdict(list)
+
+    for eval_record in evaluations:
+        primary_code = normalize_course_code(eval_record['course_id'])
+        instructor = normalize_instructor_name(eval_record['instructor'])
+        cross_listed = eval_record.get('cross_listed_codes', [])
+
+        # Index by all cross-listed codes
+        for code in cross_listed:
+            normalized_code = normalize_course_code(code)
+            cross_listing_index[normalized_code].append((primary_code, instructor, cross_listed))
+
+    return cross_listing_index
+
+
+def build_title_index(evaluations: List[Dict]) -> Dict[str, List[Tuple[str, str, str]]]:
+    """
+    Build index of courses by normalized title.
+
+    Returns:
+        Dict mapping normalized_title -> list of (course_code, instructor, original_title)
+    """
+    title_index = defaultdict(list)
+
+    for eval_record in evaluations:
+        course_code = normalize_course_code(eval_record['course_id'])
+        instructor = normalize_instructor_name(eval_record['instructor'])
+        title = eval_record.get('course_title', '')
+
+        if title:
+            normalized_title = normalize_title(title)
+            title_index[normalized_title].append((course_code, instructor, title))
+
+    return title_index
 
 
 def aggregate_evaluations(evaluations: List[Dict], instructor_lookup: Dict[str, str]) -> Dict[tuple, Dict]:
@@ -257,6 +347,12 @@ def merge(normalized_data: Dict) -> List[Dict]:
     course_instructor_agg = aggregate_evaluations(evaluations, instructor_lookup)
     course_only_agg = aggregate_course_only(evaluations)
 
+    # Build cross-listing and title indexes
+    cross_listing_index = build_cross_listing_index(evaluations)
+    title_index = build_title_index(evaluations)
+    print(f"Built cross-listing index with {len(cross_listing_index)} entries")
+    print(f"Built title index with {len(title_index)} unique titles")
+
     # Debugging: Show top courses and instructors
     print("\n--- Top 10 Most-Evaluated Courses ---")
     course_eval_counts = {}
@@ -352,6 +448,68 @@ def merge(normalized_data: Dict) -> List[Dict]:
             if matched_fuzzy:
                 continue
 
+            # Try 4: Cross-listing match
+            # Check if catalog course code appears in any cross-listings in evaluations
+            if course_id in cross_listing_index:
+                for primary_code, eval_instructor, cross_listed in cross_listing_index[course_id]:
+                    # Check if instructor matches (or close enough)
+                    if (instructor_normalized == eval_instructor or
+                        fuzzy_match_instructor(instructor_normalized, eval_instructor)):
+                        # Try to find the primary course+instructor in aggregated data
+                        primary_key = (primary_code, instructor_email) if instructor_email else (primary_code, instructor_normalized)
+                        if primary_key in course_instructor_agg:
+                            section['metrics'] = course_instructor_agg[primary_key]
+                            matched_count += 1
+                            successful_matches.append({
+                                'type': 'cross_list_match',
+                                'catalog_course': original_course_id,
+                                'normalized_course': course_id,
+                                'matched_to_primary': primary_code,
+                                'catalog_instructor': instructor_name,
+                                'match_method': 'cross_list',
+                                'num_evals': next(iter(section['metrics'].values()), {}).get('num_evaluations_aggregated', 0)
+                            })
+                            matched_fuzzy = True
+                            break
+
+                if matched_fuzzy:
+                    continue
+
+            # Try 5: Title-based fuzzy match
+            # Match by course title if code has changed
+            catalog_title = normalize_title(section.get('title', ''))
+            if catalog_title:
+                matched_by_title = False
+                # Search through title index for similar titles
+                for eval_title_normalized, title_entries in title_index.items():
+                    if fuzzy_match_title(catalog_title, eval_title_normalized):
+                        # Found a title match, now check if instructor matches
+                        for eval_course_code, eval_instructor, eval_title_orig in title_entries:
+                            if (instructor_normalized == eval_instructor or
+                                fuzzy_match_instructor(instructor_normalized, eval_instructor)):
+                                # Try to find in aggregated data
+                                title_key = (eval_course_code, instructor_email) if instructor_email else (eval_course_code, instructor_normalized)
+                                if title_key in course_instructor_agg:
+                                    section['metrics'] = course_instructor_agg[title_key]
+                                    matched_count += 1
+                                    successful_matches.append({
+                                        'type': 'title_match',
+                                        'catalog_course': original_course_id,
+                                        'catalog_title': section.get('title', ''),
+                                        'matched_course': eval_course_code,
+                                        'matched_title': eval_title_orig,
+                                        'catalog_instructor': instructor_name,
+                                        'match_method': 'title',
+                                        'num_evals': next(iter(section['metrics'].values()), {}).get('num_evaluations_aggregated', 0)
+                                    })
+                                    matched_by_title = True
+                                    break
+                        if matched_by_title:
+                            break
+
+                if matched_by_title:
+                    continue
+
             # Track why it failed
             if course_id not in course_only_agg:
                 match_failures['course_not_in_evals'].append({
@@ -390,6 +548,15 @@ def merge(normalized_data: Dict) -> List[Dict]:
             if match['type'] == 'fuzzy_match':
                 print(f"    → Fuzzy matched to: {match['matched_to']}")
             print(f"    → Matched {match['num_evals']} evaluations")
+        elif match['type'] == 'cross_list_match':
+            print(f"  ✓ {match['catalog_course']} + {match['catalog_instructor']} [cross-list]")
+            print(f"    → Matched via cross-listing to: {match['matched_to_primary']}")
+            print(f"    → Matched {match['num_evals']} evaluations")
+        elif match['type'] == 'title_match':
+            print(f"  ✓ {match['catalog_course']} + {match['catalog_instructor']} [title]")
+            print(f"    → Catalog title: {match['catalog_title']}")
+            print(f"    → Matched to: {match['matched_course']} - {match['matched_title']}")
+            print(f"    → Matched {match['num_evals']} evaluations")
         else:
             print(f"  ✓ {match['catalog_course']} ({match['normalized_course']}) [course-only]")
             print(f"    → Matched {match['num_evals']} evaluations")
@@ -412,9 +579,11 @@ def merge(normalized_data: Dict) -> List[Dict]:
     email_matches = sum(1 for m in successful_matches if m.get('match_method') == 'email')
     name_matches = sum(1 for m in successful_matches if m.get('match_method') == 'name')
     fuzzy_matches = sum(1 for m in successful_matches if m.get('match_method') == 'fuzzy')
+    cross_list_matches = sum(1 for m in successful_matches if m.get('match_method') == 'cross_list')
+    title_matches = sum(1 for m in successful_matches if m.get('match_method') == 'title')
     course_only_matches = sum(1 for m in successful_matches if m['type'] == 'course_only')
 
-    instructor_matches = email_matches + name_matches + fuzzy_matches
+    instructor_matches = email_matches + name_matches + fuzzy_matches + cross_list_matches + title_matches
 
     print(f"\n--- Final Match Statistics ---")
     print(f"Matched {matched_count}/{len(sections)} sections to historical evaluations ({matched_count/len(sections)*100:.1f}%)")
@@ -422,6 +591,8 @@ def merge(normalized_data: Dict) -> List[Dict]:
     print(f"  - Email-based: {email_matches}")
     print(f"  - Name-based: {name_matches}")
     print(f"  - Fuzzy name match: {fuzzy_matches}")
+    print(f"  - Cross-listing match: {cross_list_matches}")
+    print(f"  - Title-based match: {title_matches}")
     print(f"\nCourse-only matches: {course_only_matches}")
     print(f"No match (will use population mean): {len(sections) - matched_count}")
     print(f"\nMatch failure breakdown:")
