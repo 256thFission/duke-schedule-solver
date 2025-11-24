@@ -1,8 +1,67 @@
 """Stage 1: Ingest raw data files."""
 import json
 import csv
+import re
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Tuple
+
+
+def parse_evaluation_course_field(course_str: str) -> Tuple[str, str, List[str]]:
+    """
+    Parse evaluation course field to extract primary code, title, and cross-listings.
+
+    Example input: "AADS-201-01 : INTRO ASIAN AMER DIASP STUDIES.AADS-201-01.AMES-276-01.ENGLISH-275-01."
+
+    Returns:
+        Tuple of (primary_code, title, cross_listed_codes)
+        - primary_code: "AADS-201" (without section)
+        - title: "INTRO ASIAN AMER DIASP STUDIES"
+        - cross_listed_codes: ["AADS-201", "AMES-276", "ENGLISH-275"] (all codes without sections)
+    """
+    # Split by colon to separate code from title+cross-listings
+    if ':' not in course_str:
+        # No title, just return the code
+        code_match = re.match(r'^([A-Z]+)-(\d+[A-Z]*)-(\d+)', course_str)
+        if code_match:
+            primary_code = f"{code_match.group(1)}-{code_match.group(2)}"
+            return primary_code, "", [primary_code]
+        return course_str, "", [course_str]
+
+    parts = course_str.split(':', 1)
+    primary_full = parts[0].strip()  # e.g., "AADS-201-01"
+    rest = parts[1].strip()  # e.g., "INTRO ASIAN AMER DIASP STUDIES.AADS-201-01.AMES-276-01..."
+
+    # Extract primary code without section number
+    code_match = re.match(r'^([A-Z]+)-(\d+[A-Z]*)-(\d+)', primary_full)
+    if code_match:
+        primary_code = f"{code_match.group(1)}-{code_match.group(2)}"
+    else:
+        primary_code = primary_full
+
+    # Split rest by periods
+    segments = rest.split('.')
+
+    # First segment is the title
+    title = segments[0].strip() if segments else ""
+
+    # Remaining segments are cross-listed codes (with section numbers)
+    cross_listed_codes = []
+    for segment in segments[1:]:
+        segment = segment.strip()
+        if not segment:
+            continue
+        # Extract code without section: "AMES-276-01" -> "AMES-276"
+        code_match = re.match(r'^([A-Z]+)-(\d+[A-Z]*)-(\d+)', segment)
+        if code_match:
+            code = f"{code_match.group(1)}-{code_match.group(2)}"
+            if code not in cross_listed_codes:
+                cross_listed_codes.append(code)
+
+    # Add primary code to cross-listings if not already there
+    if primary_code not in cross_listed_codes:
+        cross_listed_codes.insert(0, primary_code)
+
+    return primary_code, title, cross_listed_codes
 
 
 def load_catalog(catalog_path: str) -> List[Dict]:
@@ -38,10 +97,16 @@ def load_department_evaluations(dept_dir: Path, question_mapping: Dict[str, str]
             key = (row['filename'], row['course'], row['instructor'])
 
             if key not in evaluations:
+                # Parse course field to extract title and cross-listings
+                primary_code, title, cross_listed_codes = parse_evaluation_course_field(row['course'])
+
                 evaluations[key] = {
                     'filename': row['filename'],
                     'semester': row['semester'],
-                    'course': row['course'],
+                    'course': row['course'],  # Keep original for reference
+                    'course_code': primary_code,
+                    'course_title': title,
+                    'cross_listed_codes': cross_listed_codes,
                     'instructor': row['instructor'],
                     'metrics': {}
                 }
