@@ -14,6 +14,56 @@ def normalize_instructor_name(name: str) -> str:
     return ' '.join(parts)
 
 
+def normalize_course_code(course_code: str) -> str:
+    """
+    Normalize course code for fuzzy matching.
+
+    Handles:
+    - Separator variations: COMPSCI-101, COMPSCI.101, COMPSCI 101
+    - Number padding: MATH-21, MATH-021, MATH-0021
+    - Suffixes: COMPSCI-101L, COMPSCI-101S (strips L, S, etc.)
+
+    Returns base course code: "COMPSCI-101"
+    """
+    if not course_code:
+        return ""
+
+    # Normalize to uppercase
+    code = course_code.upper()
+
+    # Replace separators with dash
+    code = code.replace('.', '-').replace(' ', '-')
+
+    # Split into subject and number
+    parts = code.split('-')
+    if len(parts) < 2:
+        return code
+
+    subject = parts[0]
+    number = parts[1]
+
+    # Strip common course suffixes (L, S, A, B, etc.)
+    # Keep letters that are part of the number (like "128CN")
+    import re
+    # Match: digits + optional single letter suffix at end
+    match = re.match(r'^(\d+)([A-Z]?)(.*)$', number)
+    if match:
+        digits = match.group(1)
+        # Keep multi-letter suffixes like "CN", strip single letters like "L"
+        suffix = match.group(2) + match.group(3)
+        if len(suffix) > 1:
+            # Multi-letter suffix like "CN" - keep it
+            number = digits + suffix
+        else:
+            # Single letter suffix like "L" or "S" - strip it
+            number = digits
+
+    # Strip leading zeros from number
+    number = str(int(number)) if number.isdigit() else number
+
+    return f"{subject}-{number}"
+
+
 def aggregate_evaluations(evaluations: List[Dict]) -> Dict[tuple, Dict]:
     """
     Aggregate evaluations by course + instructor across all sections/semesters.
@@ -30,7 +80,7 @@ def aggregate_evaluations(evaluations: List[Dict]) -> Dict[tuple, Dict]:
     groups = defaultdict(list)
 
     for eval_record in evaluations:
-        course_id = eval_record['course_id']
+        course_id = normalize_course_code(eval_record['course_id'])
         instructor = normalize_instructor_name(eval_record['instructor'])
         key = (course_id, instructor)
         groups[key].append(eval_record)
@@ -84,7 +134,7 @@ def aggregate_course_only(evaluations: List[Dict]) -> Dict[str, Dict]:
     groups = defaultdict(list)
 
     for eval_record in evaluations:
-        course_id = eval_record['course_id']
+        course_id = normalize_course_code(eval_record['course_id'])
         groups[course_id].append(eval_record)
 
     # Aggregate metrics
@@ -148,7 +198,7 @@ def merge(normalized_data: Dict) -> List[Dict]:
 
     for section in sections:
         section['metrics'] = {}
-        course_id = section['course_id']
+        course_id = normalize_course_code(section['course_id'])
 
         # Try course+instructor match first
         if not section['instructor']['is_unknown']:
