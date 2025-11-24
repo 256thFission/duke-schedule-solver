@@ -475,40 +475,64 @@ def merge(normalized_data: Dict) -> List[Dict]:
                 if matched_fuzzy:
                     continue
 
-            # Try 5: Title-based fuzzy match
-            # Match by course title if code has changed
-            catalog_title = normalize_title(section.get('title', ''))
-            if catalog_title:
-                matched_by_title = False
-                # Search through title index for similar titles
-                for eval_title_normalized, title_entries in title_index.items():
-                    if fuzzy_match_title(catalog_title, eval_title_normalized):
-                        # Found a title match, now check if instructor matches
-                        for eval_course_code, eval_instructor, eval_title_orig in title_entries:
-                            if (instructor_normalized == eval_instructor or
-                                fuzzy_match_instructor(instructor_normalized, eval_instructor)):
-                                # Try to find in aggregated data
-                                title_key = (eval_course_code, instructor_email) if instructor_email else (eval_course_code, instructor_normalized)
-                                if title_key in course_instructor_agg:
-                                    section['metrics'] = course_instructor_agg[title_key]
-                                    matched_count += 1
-                                    successful_matches.append({
-                                        'type': 'title_match',
-                                        'catalog_course': original_course_id,
-                                        'catalog_title': section.get('title', ''),
-                                        'matched_course': eval_course_code,
-                                        'matched_title': eval_title_orig,
-                                        'catalog_instructor': instructor_name,
-                                        'match_method': 'title',
-                                        'num_evals': next(iter(section['metrics'].values()), {}).get('num_evaluations_aggregated', 0)
-                                    })
-                                    matched_by_title = True
-                                    break
-                        if matched_by_title:
+            # Try 5: Title-based fuzzy match (EXPENSIVE - only for courses not in evaluations at all)
+            # Only try title matching if course doesn't exist in evaluations
+            # This avoids expensive fuzzy matching when we already have course-only data
+            if course_id not in course_only_agg:
+                catalog_title = normalize_title(section.get('title', ''))
+                if catalog_title and len(catalog_title) > 5:  # Skip very short titles
+                    matched_by_title = False
+
+                    # Extract subject from course code for filtering
+                    catalog_subject = course_id.split('-')[0] if '-' in course_id else ''
+
+                    # Limit comparisons to avoid hang - only check first 100 title candidates
+                    comparison_count = 0
+                    max_comparisons = 100
+
+                    # Search through title index for similar titles
+                    for eval_title_normalized, title_entries in title_index.items():
+                        if comparison_count >= max_comparisons:
                             break
 
-                if matched_by_title:
-                    continue
+                        # Quick filter: skip if titles are drastically different lengths
+                        if abs(len(catalog_title) - len(eval_title_normalized)) > 20:
+                            continue
+
+                        comparison_count += 1
+
+                        if fuzzy_match_title(catalog_title, eval_title_normalized):
+                            # Found a title match, now check if instructor matches
+                            for eval_course_code, eval_instructor, eval_title_orig in title_entries:
+                                # Prefer same department/subject
+                                eval_subject = eval_course_code.split('-')[0] if '-' in eval_course_code else ''
+                                if catalog_subject and eval_subject and catalog_subject != eval_subject:
+                                    continue  # Different department, skip
+
+                                if (instructor_normalized == eval_instructor or
+                                    fuzzy_match_instructor(instructor_normalized, eval_instructor)):
+                                    # Try to find in aggregated data
+                                    title_key = (eval_course_code, instructor_email) if instructor_email else (eval_course_code, instructor_normalized)
+                                    if title_key in course_instructor_agg:
+                                        section['metrics'] = course_instructor_agg[title_key]
+                                        matched_count += 1
+                                        successful_matches.append({
+                                            'type': 'title_match',
+                                            'catalog_course': original_course_id,
+                                            'catalog_title': section.get('title', ''),
+                                            'matched_course': eval_course_code,
+                                            'matched_title': eval_title_orig,
+                                            'catalog_instructor': instructor_name,
+                                            'match_method': 'title',
+                                            'num_evals': next(iter(section['metrics'].values()), {}).get('num_evaluations_aggregated', 0)
+                                        })
+                                        matched_by_title = True
+                                        break
+                            if matched_by_title:
+                                break
+
+                    if matched_by_title:
+                        continue
 
             # Track why it failed
             if course_id not in course_only_agg:
