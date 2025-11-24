@@ -1,70 +1,132 @@
 """Stage 3: Merge evaluations with catalog sections."""
 from typing import List, Dict
+from collections import defaultdict
+import statistics
 
 
 def normalize_instructor_name(name: str) -> str:
     """Normalize instructor name for matching."""
-    return ' '.join(name.lower().split())
+    # Remove middle initials for more flexible matching
+    parts = name.lower().split()
+    # Keep first and last name, skip middle initials
+    if len(parts) >= 2:
+        return f"{parts[0]} {parts[-1]}"
+    return ' '.join(parts)
 
 
-def normalize_section_number(section: str) -> str:
+def aggregate_evaluations(evaluations: List[Dict]) -> Dict[tuple, Dict]:
     """
-    Normalize section number for matching.
-
-    Converts "001" and "01" and "1" all to "1" for comparison.
-    Preserves non-numeric sections like "01A".
-    """
-    if not section:
-        return ""
-
-    # Try to convert to int and back to strip leading zeros
-    # If it fails (has letters), return as-is
-    try:
-        return str(int(section))
-    except ValueError:
-        # Has letters, just strip and lowercase
-        return section.strip().upper()
-
-
-def match_evaluation_to_section(eval_record: Dict, sections: List[Dict]) -> Dict:
-    """
-    Find matching section for evaluation record.
+    Aggregate evaluations by course + instructor across all sections/semesters.
 
     Args:
-        eval_record: Normalized evaluation record
-        sections: List of normalized sections
+        evaluations: List of evaluation records
 
     Returns:
-        Matching section or None
-
-    TODO: Add fuzzy instructor matching, cross-listing support
+        Dict mapping (course_id, instructor) to aggregated metrics
     """
-    eval_course = eval_record['course_id']
-    eval_section = normalize_section_number(eval_record['section'])
-    eval_instructor = normalize_instructor_name(eval_record['instructor'])
+    print("Aggregating evaluations across all sections and semesters...")
 
-    for section in sections:
-        # Normalize section numbers for comparison
-        section_number = normalize_section_number(section['section'])
+    # Group evaluations by course + instructor
+    groups = defaultdict(list)
 
-        # Match on course code and section number
-        if (section['course_id'] == eval_course and
-            section_number == eval_section):
+    for eval_record in evaluations:
+        course_id = eval_record['course_id']
+        instructor = normalize_instructor_name(eval_record['instructor'])
+        key = (course_id, instructor)
+        groups[key].append(eval_record)
 
-            # Check instructor match (if not unknown)
-            if section['instructor']['is_unknown']:
-                return section
+    # Aggregate metrics for each group
+    aggregated = {}
+    metric_names = ['intellectual_stimulation', 'overall_course_quality',
+                   'overall_instructor_quality', 'course_difficulty', 'hours_per_week']
 
-            section_instructor = normalize_instructor_name(section['instructor']['name'])
-            if section_instructor == eval_instructor:
-                return section
+    for key, eval_records in groups.items():
+        aggregated[key] = {}
 
-    return None
+        for metric_name in metric_names:
+            # Collect all values for this metric
+            values = []
+            total_sample_size = 0
+
+            for record in eval_records:
+                if metric_name in record['metrics']:
+                    metric = record['metrics'][metric_name]
+                    values.append(metric['mean'])
+                    total_sample_size += metric.get('sample_size', 0)
+
+            # Aggregate if we have data
+            if values:
+                aggregated[key][metric_name] = {
+                    'mean': statistics.mean(values),
+                    'median': statistics.median(values),
+                    'std': statistics.stdev(values) if len(values) > 1 else 0.0,
+                    'sample_size': total_sample_size,
+                    'num_evaluations_aggregated': len(values),
+                    'data_source': 'evaluations',
+                    'confidence': 'high' if total_sample_size >= 10 else 'medium' if total_sample_size >= 5 else 'low'
+                }
+
+    print(f"Aggregated {len(groups)} unique course+instructor combinations")
+    return aggregated
+
+
+def aggregate_course_only(evaluations: List[Dict]) -> Dict[str, Dict]:
+    """
+    Aggregate evaluations by course only (for unknown instructors).
+
+    Args:
+        evaluations: List of evaluation records
+
+    Returns:
+        Dict mapping course_id to aggregated metrics
+    """
+    # Group by course only
+    groups = defaultdict(list)
+
+    for eval_record in evaluations:
+        course_id = eval_record['course_id']
+        groups[course_id].append(eval_record)
+
+    # Aggregate metrics
+    aggregated = {}
+    metric_names = ['intellectual_stimulation', 'overall_course_quality',
+                   'overall_instructor_quality', 'course_difficulty', 'hours_per_week']
+
+    for course_id, eval_records in groups.items():
+        aggregated[course_id] = {}
+
+        for metric_name in metric_names:
+            values = []
+            total_sample_size = 0
+
+            for record in eval_records:
+                if metric_name in record['metrics']:
+                    metric = record['metrics'][metric_name]
+                    values.append(metric['mean'])
+                    total_sample_size += metric.get('sample_size', 0)
+
+            if values:
+                aggregated[course_id][metric_name] = {
+                    'mean': statistics.mean(values),
+                    'median': statistics.median(values),
+                    'std': statistics.stdev(values) if len(values) > 1 else 0.0,
+                    'sample_size': total_sample_size,
+                    'num_evaluations_aggregated': len(values),
+                    'data_source': 'course_aggregate',
+                    'confidence': 'medium' if total_sample_size >= 10 else 'low'
+                }
+
+    return aggregated
 
 
 def merge(normalized_data: Dict) -> List[Dict]:
     """
-    Merge evaluations into sections.
+    Merge aggregated evaluations into sections.
+
+    Strategy:
+    1. Aggregate all evaluations by course+instructor (across all sections/semesters)
+    2. For each catalog section, match to aggregated data by course+instructor
+    3. If instructor unknown or no match, fall back to course-only aggregate
 
     Args:
         normalized_data: Dict with 'sections' and 'evaluations'
@@ -77,19 +139,34 @@ def merge(normalized_data: Dict) -> List[Dict]:
     sections = normalized_data['sections']
     evaluations = normalized_data['evaluations']
 
-    # Add metrics field to all sections
+    # Aggregate evaluations
+    course_instructor_agg = aggregate_evaluations(evaluations)
+    course_only_agg = aggregate_course_only(evaluations)
+
+    # Match to sections
+    matched_count = 0
+
     for section in sections:
         section['metrics'] = {}
+        course_id = section['course_id']
 
-    # Match evaluations to sections
-    matched_count = 0
-    for eval_record in evaluations:
-        section = match_evaluation_to_section(eval_record, sections)
+        # Try course+instructor match first
+        if not section['instructor']['is_unknown']:
+            instructor = normalize_instructor_name(section['instructor']['name'])
+            key = (course_id, instructor)
 
-        if section:
-            # Merge metrics into section
-            section['metrics'].update(eval_record['metrics'])
+            if key in course_instructor_agg:
+                section['metrics'] = course_instructor_agg[key]
+                matched_count += 1
+                continue
+
+        # Fall back to course-only match
+        if course_id in course_only_agg:
+            section['metrics'] = course_only_agg[course_id]
             matched_count += 1
 
-    print(f"Matched {matched_count}/{len(evaluations)} evaluations to sections")
+    print(f"Matched {matched_count}/{len(sections)} sections to historical evaluations")
+    print(f"  - Course+Instructor matches: {len([s for s in sections if s['metrics'].get('data_source') == 'evaluations'])}")
+    print(f"  - Course-only matches: {len([s for s in sections if s['metrics'].get('data_source') == 'course_aggregate'])}")
+
     return sections
