@@ -1,5 +1,5 @@
 """Stage 3: Merge evaluations with catalog sections."""
-from typing import List, Dict
+from typing import List, Dict, Optional
 from collections import defaultdict
 import statistics
 
@@ -12,6 +12,57 @@ def normalize_instructor_name(name: str) -> str:
     if len(parts) >= 2:
         return f"{parts[0]} {parts[-1]}"
     return ' '.join(parts)
+
+
+def build_instructor_lookup(sections: List[Dict]) -> Dict[str, str]:
+    """
+    Build lookup from instructor name to email using catalog data.
+
+    Args:
+        sections: Catalog sections with instructor info
+
+    Returns:
+        Dict mapping normalized instructor name to email
+    """
+    lookup = {}
+    for section in sections:
+        if not section['instructor']['is_unknown']:
+            name = normalize_instructor_name(section['instructor']['name'])
+            email = section['instructor']['email']
+            if email:
+                lookup[name] = email
+    return lookup
+
+
+def fuzzy_match_instructor(name1: str, name2: str) -> bool:
+    """
+    Fuzzy match instructor names.
+
+    Handles variations like:
+    - "Susan Rodger" vs "Susan H Rodger"
+    - "John Smith" vs "J Smith"
+    - Last name match if first name is initial
+    """
+    n1_parts = name1.lower().split()
+    n2_parts = name2.lower().split()
+
+    if not n1_parts or not n2_parts:
+        return False
+
+    # Last names must match
+    if n1_parts[-1] != n2_parts[-1]:
+        return False
+
+    # If either first name is an initial, just check initial
+    first1 = n1_parts[0]
+    first2 = n2_parts[0]
+
+    if len(first1) == 1 or len(first2) == 1:
+        # One is an initial
+        return first1[0] == first2[0]
+
+    # Both full names, must match
+    return first1 == first2
 
 
 def normalize_course_code(course_code: str) -> str:
@@ -64,25 +115,34 @@ def normalize_course_code(course_code: str) -> str:
     return f"{subject}-{number}"
 
 
-def aggregate_evaluations(evaluations: List[Dict]) -> Dict[tuple, Dict]:
+def aggregate_evaluations(evaluations: List[Dict], instructor_lookup: Dict[str, str]) -> Dict[tuple, Dict]:
     """
     Aggregate evaluations by course + instructor across all sections/semesters.
 
+    Uses email when available for more reliable matching.
+
     Args:
         evaluations: List of evaluation records
+        instructor_lookup: Maps instructor name to email
 
     Returns:
-        Dict mapping (course_id, instructor) to aggregated metrics
+        Dict mapping (course_id, instructor_email_or_name) to aggregated metrics
     """
     print("Aggregating evaluations across all sections and semesters...")
 
-    # Group evaluations by course + instructor
+    # Group evaluations by course + instructor (using email when available)
     groups = defaultdict(list)
 
     for eval_record in evaluations:
         course_id = normalize_course_code(eval_record['course_id'])
-        instructor = normalize_instructor_name(eval_record['instructor'])
-        key = (course_id, instructor)
+        instructor_name = normalize_instructor_name(eval_record['instructor'])
+
+        # Try to find email for this instructor
+        instructor_email = instructor_lookup.get(instructor_name)
+
+        # Use email if available, otherwise use name
+        instructor_key = instructor_email if instructor_email else instructor_name
+        key = (course_id, instructor_key)
         groups[key].append(eval_record)
 
     # Aggregate metrics for each group
@@ -189,8 +249,12 @@ def merge(normalized_data: Dict) -> List[Dict]:
     sections = normalized_data['sections']
     evaluations = normalized_data['evaluations']
 
-    # Aggregate evaluations
-    course_instructor_agg = aggregate_evaluations(evaluations)
+    # Build instructor name -> email lookup from catalog
+    instructor_lookup = build_instructor_lookup(sections)
+    print(f"Built instructor lookup with {len(instructor_lookup)} mappings")
+
+    # Aggregate evaluations (using email when possible)
+    course_instructor_agg = aggregate_evaluations(evaluations, instructor_lookup)
     course_only_agg = aggregate_course_only(evaluations)
 
     # Debugging: Show top courses and instructors
@@ -231,35 +295,76 @@ def merge(normalized_data: Dict) -> List[Dict]:
 
         # Try course+instructor match first
         if not section['instructor']['is_unknown']:
-            instructor = normalize_instructor_name(instructor_name)
-            key = (course_id, instructor)
+            instructor_email = section['instructor']['email']
+            instructor_normalized = normalize_instructor_name(instructor_name)
 
-            if key in course_instructor_agg:
-                section['metrics'] = course_instructor_agg[key]
+            # Try 1: Match by email (most reliable)
+            email_key = (course_id, instructor_email)
+            if instructor_email and email_key in course_instructor_agg:
+                section['metrics'] = course_instructor_agg[email_key]
                 matched_count += 1
                 successful_matches.append({
-                    'type': 'course+instructor',
+                    'type': 'email_match',
                     'catalog_course': original_course_id,
                     'normalized_course': course_id,
                     'catalog_instructor': instructor_name,
-                    'normalized_instructor': instructor,
+                    'match_method': 'email',
                     'num_evals': next(iter(section['metrics'].values()), {}).get('num_evaluations_aggregated', 0)
                 })
                 continue
+
+            # Try 2: Match by normalized name
+            name_key = (course_id, instructor_normalized)
+            if name_key in course_instructor_agg:
+                section['metrics'] = course_instructor_agg[name_key]
+                matched_count += 1
+                successful_matches.append({
+                    'type': 'name_match',
+                    'catalog_course': original_course_id,
+                    'normalized_course': course_id,
+                    'catalog_instructor': instructor_name,
+                    'match_method': 'name',
+                    'num_evals': next(iter(section['metrics'].values()), {}).get('num_evaluations_aggregated', 0)
+                })
+                continue
+
+            # Try 3: Fuzzy match by name within same department/course
+            matched_fuzzy = False
+            for (agg_course, agg_instructor), agg_metrics in course_instructor_agg.items():
+                # Same course, same department (implied by course code)
+                if agg_course == course_id:
+                    # Check if instructor names fuzzy match
+                    if fuzzy_match_instructor(instructor_normalized, agg_instructor):
+                        section['metrics'] = agg_metrics
+                        matched_count += 1
+                        successful_matches.append({
+                            'type': 'fuzzy_match',
+                            'catalog_course': original_course_id,
+                            'normalized_course': course_id,
+                            'catalog_instructor': instructor_name,
+                            'matched_to': agg_instructor,
+                            'match_method': 'fuzzy',
+                            'num_evals': next(iter(section['metrics'].values()), {}).get('num_evaluations_aggregated', 0)
+                        })
+                        matched_fuzzy = True
+                        break
+
+            if matched_fuzzy:
+                continue
+
+            # Track why it failed
+            if course_id not in course_only_agg:
+                match_failures['course_not_in_evals'].append({
+                    'course': original_course_id,
+                    'normalized': course_id,
+                    'instructor': instructor_name
+                })
             else:
-                # Track why it failed
-                if course_id not in course_only_agg:
-                    match_failures['course_not_in_evals'].append({
-                        'course': original_course_id,
-                        'normalized': course_id,
-                        'instructor': instructor_name
-                    })
-                else:
-                    match_failures['instructor_not_found'].append({
-                        'course': original_course_id,
-                        'instructor': instructor_name,
-                        'normalized_instructor': instructor
-                    })
+                match_failures['instructor_not_found'].append({
+                    'course': original_course_id,
+                    'instructor': instructor_name,
+                    'normalized_instructor': instructor_normalized
+                })
         else:
             match_failures['unknown_instructor'].append({
                 'course': original_course_id
@@ -279,8 +384,11 @@ def merge(normalized_data: Dict) -> List[Dict]:
     # Print matching results
     print("\n--- Sample Successful Matches ---")
     for match in successful_matches[:5]:
-        if match['type'] == 'course+instructor':
-            print(f"  ✓ {match['catalog_course']} ({match['normalized_course']}) + {match['catalog_instructor']}")
+        if match['type'] in ['email_match', 'name_match', 'fuzzy_match']:
+            method = match['match_method']
+            print(f"  ✓ {match['catalog_course']} ({match['normalized_course']}) + {match['catalog_instructor']} [{method}]")
+            if match['type'] == 'fuzzy_match':
+                print(f"    → Fuzzy matched to: {match['matched_to']}")
             print(f"    → Matched {match['num_evals']} evaluations")
         else:
             print(f"  ✓ {match['catalog_course']} ({match['normalized_course']}) [course-only]")
@@ -300,25 +408,22 @@ def merge(normalized_data: Dict) -> List[Dict]:
     for failure in match_failures['unknown_instructor'][:3]:
         print(f"  ✗ {failure['course']}")
 
-    # Count match types by checking data_source in metrics
-    instructor_matches = 0
-    course_only_matches = 0
+    # Count match types
+    email_matches = sum(1 for m in successful_matches if m.get('match_method') == 'email')
+    name_matches = sum(1 for m in successful_matches if m.get('match_method') == 'name')
+    fuzzy_matches = sum(1 for m in successful_matches if m.get('match_method') == 'fuzzy')
+    course_only_matches = sum(1 for m in successful_matches if m['type'] == 'course_only')
 
-    for section in sections:
-        if section['metrics']:
-            # Check data_source from first metric
-            first_metric = next(iter(section['metrics'].values()), {})
-            source = first_metric.get('data_source', '')
-            if source == 'evaluations':
-                instructor_matches += 1
-            elif source == 'course_aggregate':
-                course_only_matches += 1
+    instructor_matches = email_matches + name_matches + fuzzy_matches
 
     print(f"\n--- Final Match Statistics ---")
     print(f"Matched {matched_count}/{len(sections)} sections to historical evaluations ({matched_count/len(sections)*100:.1f}%)")
-    print(f"  - Course+Instructor matches: {instructor_matches}")
-    print(f"  - Course-only matches: {course_only_matches}")
-    print(f"  - No match (will use population mean): {len(sections) - matched_count}")
+    print(f"\nCourse+Instructor matches: {instructor_matches}")
+    print(f"  - Email-based: {email_matches}")
+    print(f"  - Name-based: {name_matches}")
+    print(f"  - Fuzzy name match: {fuzzy_matches}")
+    print(f"\nCourse-only matches: {course_only_matches}")
+    print(f"No match (will use population mean): {len(sections) - matched_count}")
     print(f"\nMatch failure breakdown:")
     print(f"  - Course not in evaluations: {len(match_failures['course_not_in_evals'])}")
     print(f"  - Instructor not found (but course exists): {len(match_failures['instructor_not_found'])}")
