@@ -22,8 +22,11 @@ def build_solver_data_block(section: Dict) -> Optional[Dict]:
     Extracts and formats:
     - Integer schedule (time slots in absolute minutes)
     - Day indices and bitmask
-    - Z-scores for all metrics
+    - Z-scores for all metrics (including imputed data)
     - Risk metrics (posterior std for risk aversion)
+
+    IMPORTANT: Sections with imputed metrics (population means) ARE included.
+    Only sections without valid meeting times (TBA/online) are excluded.
 
     Args:
         section: Section dict with schedule and metrics
@@ -33,6 +36,7 @@ def build_solver_data_block(section: Dict) -> Optional[Dict]:
     """
     solver_schedule = section.get('solver_schedule')
     if not solver_schedule:
+        # Skip only sections with NO meeting time (TBA, online, etc.)
         return None
 
     # Extract integer schedule
@@ -104,14 +108,30 @@ def build_output_structure(data: Dict, config: Dict) -> Dict:
     if solver_enabled:
         print("Adding solver_data blocks to sections...")
         solver_data_count = 0
+        skipped_no_schedule = 0
+        skipped_empty_schedule = 0
 
         for section in sections:
+            # Check why sections might be skipped
+            if not section.get('solver_schedule'):
+                skipped_no_schedule += 1
+                continue
+
+            if not section['solver_schedule'].get('time_slots'):
+                skipped_empty_schedule += 1
+                continue
+
+            # Build solver_data (includes sections with imputed metrics)
             solver_data = build_solver_data_block(section)
             if solver_data:
                 section['solver_data'] = solver_data
                 solver_data_count += 1
 
         print(f"  Added solver_data to {solver_data_count}/{len(sections)} sections")
+        if skipped_no_schedule > 0:
+            print(f"  Skipped {skipped_no_schedule} sections without valid meeting times (TBA/online)")
+        if skipped_empty_schedule > 0:
+            print(f"  Skipped {skipped_empty_schedule} sections with empty time_slots")
 
     # Group by course
     courses_dict = group_sections_by_course(sections)
