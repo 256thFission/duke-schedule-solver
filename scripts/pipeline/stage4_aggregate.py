@@ -3,6 +3,11 @@ from typing import List, Dict
 import statistics
 from collections import defaultdict
 from . import utils
+from .bayesian_stats import (
+    calculate_global_priors,
+    apply_bayesian_shrinkage,
+    validate_shrinkage_quality
+)
 
 
 METRIC_NAMES = [
@@ -223,24 +228,47 @@ def impute_missing_metrics(sections: List[Dict], population_stats: Dict[str, Dic
     print(f"Imputed {imputed_count} missing metric values")
 
 
-def aggregate(sections: List[Dict], config: Dict) -> Dict:
+def aggregate(sections: List[Dict], config: Dict, evaluations: List[Dict] = None) -> Dict:
     """
     Main aggregate function.
 
     Args:
         sections: List of merged sections
         config: Pipeline configuration
+        evaluations: Raw evaluation records (for Bayesian priors)
 
     Returns:
         Dict with sections and statistics
     """
     strategy = config.get('missing_data_strategy', 'neutral')
+    solver_enabled = config.get('solver_settings', {}).get('enabled', False)
 
-    # Calculate population statistics
+    # Calculate population statistics (legacy method)
     population_stats = calculate_population_stats(sections)
 
     # Impute missing metrics
     impute_missing_metrics(sections, population_stats, strategy)
+
+    # Apply Bayesian shrinkage if solver is enabled
+    if solver_enabled and evaluations:
+        print("\n--- Bayesian Shrinkage Pipeline ---")
+
+        # Step 1: Calculate global priors from raw evaluations
+        global_priors = calculate_global_priors(evaluations, METRIC_NAMES)
+
+        # Step 2: Apply shrinkage to all section metrics
+        apply_bayesian_shrinkage(sections, global_priors, METRIC_NAMES, config)
+
+        # Step 3: Validate results
+        validation_results = validate_shrinkage_quality(sections, METRIC_NAMES)
+
+        print("--- Bayesian Shrinkage Complete ---\n")
+
+        # Add priors to output statistics
+        population_stats['global_priors'] = global_priors
+        population_stats['validation'] = validation_results
+    elif solver_enabled and not evaluations:
+        print("⚠ Warning: Solver enabled but no evaluations provided. Skipping Bayesian shrinkage.")
 
     return {
         'sections': sections,

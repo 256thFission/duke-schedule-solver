@@ -1,7 +1,7 @@
 """Stage 5: Export processed data to JSON."""
 import json
 from datetime import datetime
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 
 def group_sections_by_course(sections: List[Dict]) -> Dict[str, List[Dict]]:
@@ -13,6 +13,74 @@ def group_sections_by_course(sections: List[Dict]) -> Dict[str, List[Dict]]:
             courses[course_id] = []
         courses[course_id].append(section)
     return courses
+
+
+def build_solver_data_block(section: Dict) -> Optional[Dict]:
+    """
+    Build solver-ready data block for a section.
+
+    Extracts and formats:
+    - Integer schedule (time slots in absolute minutes)
+    - Day indices and bitmask
+    - Z-scores for all metrics
+    - Risk metrics (posterior std for risk aversion)
+
+    Args:
+        section: Section dict with schedule and metrics
+
+    Returns:
+        Solver data dict, or None if solver_schedule is missing
+    """
+    solver_schedule = section.get('solver_schedule')
+    if not solver_schedule:
+        return None
+
+    # Extract integer schedule
+    time_slots = solver_schedule.get('time_slots', [])
+    day_indices = solver_schedule.get('day_indices', [])
+    day_bitmask = solver_schedule.get('day_bitmask', 0)
+
+    # time_slots is already in the correct format: [[start1, end1], [start2, end2], ...]
+    integer_schedule = time_slots if time_slots else []
+
+    # Extract z-scores from metrics
+    metrics_z_scores = {}
+    metrics = section.get('metrics', {})
+
+    for metric_name, metric_data in metrics.items():
+        if 'z_score' in metric_data:
+            metrics_z_scores[metric_name] = metric_data['z_score']
+
+    # Calculate composite risk metrics
+    # Average posterior_std across all metrics (for risk aversion parameter)
+    posterior_stds = []
+    posterior_means = []
+
+    for metric_name, metric_data in metrics.items():
+        if 'posterior_std' in metric_data:
+            posterior_stds.append(metric_data['posterior_std'])
+        if 'posterior_mean' in metric_data:
+            posterior_means.append(metric_data['posterior_mean'])
+
+    risk_metrics = {}
+    if posterior_means:
+        risk_metrics['posterior_mean_composite'] = round(sum(posterior_means) / len(posterior_means), 4)
+    if posterior_stds:
+        risk_metrics['posterior_std_composite'] = round(sum(posterior_stds) / len(posterior_stds), 4)
+
+    # Build solver_data block
+    solver_data = {
+        'integer_schedule': integer_schedule,
+        'day_indices': day_indices,
+        'day_bitmask': day_bitmask,
+        'metrics_z_scores': metrics_z_scores
+    }
+
+    # Only add risk_metrics if we have data
+    if risk_metrics:
+        solver_data['risk_metrics'] = risk_metrics
+
+    return solver_data
 
 
 def build_output_structure(data: Dict, config: Dict) -> Dict:
@@ -30,6 +98,20 @@ def build_output_structure(data: Dict, config: Dict) -> Dict:
 
     sections = data['sections']
     statistics = data['statistics']
+    solver_enabled = config.get('solver_settings', {}).get('enabled', False)
+
+    # Add solver_data blocks if solver is enabled
+    if solver_enabled:
+        print("Adding solver_data blocks to sections...")
+        solver_data_count = 0
+
+        for section in sections:
+            solver_data = build_solver_data_block(section)
+            if solver_data:
+                section['solver_data'] = solver_data
+                solver_data_count += 1
+
+        print(f"  Added solver_data to {solver_data_count}/{len(sections)} sections")
 
     # Group by course
     courses_dict = group_sections_by_course(sections)
@@ -48,14 +130,22 @@ def build_output_structure(data: Dict, config: Dict) -> Dict:
         }
         courses_list.append(course_entry)
 
+    # Build metadata
+    metadata = {
+        'generated_at': datetime.now().isoformat(),
+        'missing_data_strategy': config.get('missing_data_strategy', 'neutral'),
+        'total_courses': len(courses_list),
+        'total_sections': len(sections)
+    }
+
+    # Add solver info to metadata if enabled
+    if solver_enabled:
+        metadata['solver_ready'] = True
+        metadata['solver_settings'] = config.get('solver_settings', {})
+
     # Build final output
     output = {
-        'metadata': {
-            'generated_at': datetime.now().isoformat(),
-            'missing_data_strategy': config.get('missing_data_strategy', 'neutral'),
-            'total_courses': len(courses_list),
-            'total_sections': len(sections)
-        },
+        'metadata': metadata,
         'courses': courses_list,
         'statistics': statistics
     }
