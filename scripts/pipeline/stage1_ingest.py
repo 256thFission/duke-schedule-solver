@@ -8,15 +8,12 @@ from typing import List, Dict, Tuple
 
 def parse_evaluation_course_field(course_str: str) -> Tuple[str, str, List[str]]:
     """
-    Parse evaluation course field to extract primary code, title, and cross-listings.
-
+    Parse evaluation to extract primary code, title, and cross-listings.
     Example input: "AADS-201-01 : INTRO ASIAN AMER DIASP STUDIES.AADS-201-01.AMES-276-01.ENGLISH-275-01."
-
-    Returns:
-        Tuple of (primary_code, title, cross_listed_codes)
-        - primary_code: "AADS-201" (without section)
-        - title: "INTRO ASIAN AMER DIASP STUDIES"
-        - cross_listed_codes: ["AADS-201", "AMES-276", "ENGLISH-275"] (all codes without sections)
+    Returns as tuple:
+        - primary_code
+        - title
+        - cross_listed_codes [array]
     """
     # Split by colon to separate code from title+cross-listings
     if ':' not in course_str:
@@ -65,7 +62,6 @@ def parse_evaluation_course_field(course_str: str) -> Tuple[str, str, List[str]]
 
 
 def load_catalog(catalog_path: str) -> List[Dict]:
-    """Load catalog JSON file."""
     print(f"Loading catalog from {catalog_path}")
     with open(catalog_path, 'r', encoding='utf-8') as f:
         raw_catalog = json.load(f)
@@ -79,16 +75,7 @@ def load_catalog(catalog_path: str) -> List[Dict]:
 
 
 def load_department_evaluations(dept_dir: Path, question_mapping: Dict[str, str]) -> List[Dict]:
-    """
-    Load evaluations from a single department directory.
 
-    Args:
-        dept_dir: Path to department directory
-        question_mapping: Maps question numbers to metric names
-
-    Returns:
-        List of evaluation records from this department
-    """
     questions_file = dept_dir / 'evaluations_questions.csv'
 
     if not questions_file.exists():

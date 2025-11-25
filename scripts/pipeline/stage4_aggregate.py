@@ -1,6 +1,8 @@
 """Stage 4: Calculate statistics and impute missing data."""
 from typing import List, Dict
 import statistics
+from collections import defaultdict
+from . import utils
 
 
 METRIC_NAMES = [
@@ -10,6 +12,122 @@ METRIC_NAMES = [
     'course_difficulty',
     'hours_per_week'
 ]
+
+
+def aggregate_evaluations(evaluations: List[Dict], instructor_lookup: Dict[str, str]) -> Dict[tuple, Dict]:
+    """
+    Aggregate evaluations by course + instructor across all sections/semesters.
+
+    Uses email when available for more reliable matching.
+
+    Args:
+        evaluations: List of evaluation records
+        instructor_lookup: Maps instructor name to email
+
+    Returns:
+        Dict mapping (course_id, instructor_email_or_name) to aggregated metrics
+    """
+    print("Aggregating evaluations across all sections and semesters...")
+
+    # Group evaluations by course + instructor (using email when available)
+    groups = defaultdict(list)
+
+    for eval_record in evaluations:
+        course_id = utils.normalize_course_code(eval_record['course_id'])
+        instructor_name = utils.normalize_instructor_name(eval_record['instructor'])
+
+        # Try to find email for this instructor
+        instructor_email = instructor_lookup.get(instructor_name)
+
+        # Use email if available, otherwise use name
+        instructor_key = instructor_email if instructor_email else instructor_name
+        key = (course_id, instructor_key)
+        groups[key].append(eval_record)
+
+    # Aggregate metrics for each group
+    aggregated = {}
+
+    for key, eval_records in groups.items():
+        aggregated[key] = {}
+
+        for metric_name in METRIC_NAMES:
+            # Collect all values for this metric
+            values = []
+            total_sample_size = 0
+
+            for record in eval_records:
+                if metric_name in record['metrics']:
+                    metric = record['metrics'][metric_name]
+                    values.append(metric['mean'])
+                    total_sample_size += metric.get('sample_size', 0)
+
+            # Aggregate if we have data
+            if values:
+                aggregated[key][metric_name] = {
+                    'mean': statistics.mean(values),
+                    'median': statistics.median(values),
+                    'std': statistics.stdev(values) if len(values) > 1 else 0.0,
+                    'sample_size': total_sample_size,
+                    'num_evaluations_aggregated': len(values),
+                    'data_source': 'evaluations',
+                    'confidence': 'high' if total_sample_size >= 10 else 'medium' if total_sample_size >= 5 else 'low'
+                }
+
+    print(f"Aggregated {len(groups)} unique course+instructor combinations")
+    return aggregated
+
+
+def aggregate_course_only(evaluations: List[Dict]) -> Dict[str, Dict]:
+    """
+    Aggregate evaluations by course only (for unknown instructors).
+
+    Args:
+        evaluations: List of evaluation records
+
+    Returns:
+        Dict mapping course_id to aggregated metrics
+    """
+    # Group by course only
+    groups = defaultdict(list)
+
+    for eval_record in evaluations:
+        # Index by all cross-listed codes to ensure we capture all aliases
+        codes = eval_record.get('cross_listed_codes', [])
+        if not codes:
+            codes = [eval_record['course_id']]
+
+        for code in codes:
+            course_id = utils.normalize_course_code(code)
+            groups[course_id].append(eval_record)
+
+    # Aggregate metrics
+    aggregated = {}
+
+    for course_id, eval_records in groups.items():
+        aggregated[course_id] = {}
+
+        for metric_name in METRIC_NAMES:
+            values = []
+            total_sample_size = 0
+
+            for record in eval_records:
+                if metric_name in record['metrics']:
+                    metric = record['metrics'][metric_name]
+                    values.append(metric['mean'])
+                    total_sample_size += metric.get('sample_size', 0)
+
+            if values:
+                aggregated[course_id][metric_name] = {
+                    'mean': statistics.mean(values),
+                    'median': statistics.median(values),
+                    'std': statistics.stdev(values) if len(values) > 1 else 0.0,
+                    'sample_size': total_sample_size,
+                    'num_evaluations_aggregated': len(values),
+                    'data_source': 'course_aggregate',
+                    'confidence': 'medium' if total_sample_size >= 10 else 'low'
+                }
+
+    return aggregated
 
 
 def calculate_population_stats(sections: List[Dict]) -> Dict[str, Dict]:
