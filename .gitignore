@@ -1,6 +1,7 @@
 
 *v2.csv
 data/*
+dataslim/*
 # Python
 __pycache__/
 *.pyc
