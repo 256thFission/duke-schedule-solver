@@ -2,6 +2,7 @@
 from typing import List, Dict
 import re
 from . import utils
+from .time_encoder import encode_schedule
 
 
 def normalize_catalog(catalog: List[Dict]) -> List[Dict]:
@@ -81,6 +82,11 @@ def normalize_catalog(catalog: List[Dict]) -> List[Dict]:
         # Normalize course code
         course_id = utils.normalize_course_code(entry['subject'], entry['catalog_nbr'])
 
+        # Parse schedule components
+        days = utils.parse_days(meeting.get('days', ''))
+        start_time = utils.parse_time(meeting.get('start_time', ''))
+        end_time = utils.parse_time(meeting.get('end_time', ''))
+
         section = {
             'course_id': course_id,
             'subject': entry['subject'],
@@ -95,9 +101,9 @@ def normalize_catalog(catalog: List[Dict]) -> List[Dict]:
                 'is_unknown': utils.is_unknown_instructor(instructor_name)
             },
             'schedule': {
-                'days': utils.parse_days(meeting.get('days', '')),
-                'start_time': utils.parse_time(meeting.get('start_time', '')),
-                'end_time': utils.parse_time(meeting.get('end_time', '')),
+                'days': days,
+                'start_time': start_time,
+                'end_time': end_time,
                 'location': meeting.get('facility_descr', '')
             },
             'enrollment': {
@@ -106,6 +112,11 @@ def normalize_catalog(catalog: List[Dict]) -> List[Dict]:
                 'available': entry.get('enrollment_available', 0)
             }
         }
+
+        # Add solver-ready integer schedule representation
+        # This enables O(1) conflict detection in the BIP solver
+        solver_schedule = encode_schedule(days, start_time, end_time)
+        section['solver_schedule'] = solver_schedule
 
         sections.append(section)
 
