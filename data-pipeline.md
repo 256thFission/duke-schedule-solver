@@ -118,27 +118,32 @@ AAAS-102-01_Jaji_Spring_2024.html,Spring 2024,AAAS-102-01 : INTRO AFR-AMER STUDI
 - Filter Duke campus only (stage1_ingest.py:74)
 
 ### Stage 2: Normalize
-**Standardize formats**
+**Standardize formats & filter courses**
 - Times: `"10.05.00.000000"` → `"10:05"`
 - Days: `"TuTh"` → `["Tu", "Th"]`
-- Course codes: `(subject, catalog_nbr)` → `"SUBJ-NUM"`
-- Attributes: Filter `USE-`, `TRIN-`, `CURR-` prefixes
+- Course codes: `(subject, catalog_nbr)` → `"SUBJ-NUM"` (handles suffixes like 101L→101, keeps CN/AS)
 - Detect unknown instructors (TBA, staff, etc.)
+- **Filter exclusions**: Independent Study (x91-x94), Special Topics (190/290/390/490/401), Honors (495-496), Bass Connections, WRITING 120, CN/CNS suffixes
 
-### Stage 3: Merge
+### Stage 3: Match
 **Join evaluations to catalog sections**
-- Build cross-listing map (use alphabetically first as canonical)
-- Match priority: (1) exact course+section+instructor+term, (2) fuzzy instructor name, (3) course-level aggregate
-- Instructor fuzzy match: last name + first initial (stage3_merge.py:39-67)
+- Build indexes (cross-listings, instructors)
+- Match strategies (priority order):
+  1. Exact: course+instructor by email
+  2. Course+instructor by normalized name
+  3. Cross-listing match (exact instructor match)
+  4. Fallback: course-only aggregate
+- All normalization functions in `utils.py` (course codes, names, titles)
 
 ### Stage 4: Aggregate
-**Calculate stats & impute missing data**
-- Population stats: mean, std, median, penalty_score (mean - 1.5×std)
-- **Missing data strategies** (configurable):
+**Aggregate evaluations & impute missing data**
+- **Aggregate evaluations** across all semesters by course+instructor (uses email when available)
+- **Aggregate by course only** (for unknown instructors/fallback)
+- Calculate population stats: mean, std, median, penalty_score (mean - 1.5×std)
+- **Missing data strategies**:
   - `neutral`: use population mean
   - `conservative`: use penalty_score
 - Confidence levels: high (n≥10), medium (n≥5), low (n>0), none (n=0)
-- Aggregate by instructor/course (stage4_aggregate.py)
 
 ### Stage 5: Export
 **Write processed JSON & validation**

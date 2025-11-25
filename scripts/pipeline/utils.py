@@ -35,18 +35,78 @@ def parse_days(days_str: str) -> List[str]:
     return re.findall(pattern, days_str)
 
 
-def normalize_course_code(subject: str, catalog_nbr: str) -> str:
+def normalize_course_code(subject: str, catalog_nbr: str = None) -> str:
     """
-    Create normalized course code.
+    Create normalized course code from subject+catalog OR from full code string.
 
     Args:
-        subject: Like "AAAS"
-        catalog_nbr: Like "102"
+        subject: Either subject like "AAAS" OR full code like "COMPSCI-101L"
+        catalog_nbr: Catalog number like "102" (optional if subject is full code)
 
     Returns:
         Code like "AAAS-102"
+
+    Handles:
+    - Separator variations: COMPSCI-101, COMPSCI.101, COMPSCI 101
+    - Number padding: MATH-21, MATH-021, MATH-0021
+    - Suffixes: COMPSCI-101L, COMPSCI-101S (strips L, S, etc.)
     """
-    return f"{subject}-{catalog_nbr}"
+    # If catalog_nbr provided, simple case
+    if catalog_nbr is not None:
+        return f"{subject}-{catalog_nbr}"
+
+    # Otherwise parse the full course code
+    course_code = subject
+    if not course_code:
+        return ""
+
+    # Normalize to uppercase
+    code = course_code.upper()
+
+    # Replace separators with dash
+    code = code.replace('.', '-').replace(' ', '-')
+
+    # Split into subject and number
+    parts = code.split('-')
+    if len(parts) < 2:
+        return code
+
+    subject = parts[0]
+    number = parts[1]
+
+    # Strip common course suffixes (L, S, A, B, etc.)
+    # Keep letters that are part of the number (like "128CN")
+    match = re.match(r'^(\d+)(.*)$', number)
+    if match:
+        digits = match.group(1)
+        suffix = match.group(2)
+
+        # Strip suffixes that are:
+        # - Single letters (L, S, A, D, T, etc.)
+        # - Lab section patterns like L9, LA (letter + digit or letter + A)
+        if len(suffix) == 1:
+            # Single letter suffix like "L" or "S" - strip it
+            number = digits
+        elif len(suffix) == 2 and suffix[0] in 'LSAD' and (suffix[1].isdigit() or suffix[1] == 'A'):
+            # Lab/section patterns like L9, LA, S1, etc. - strip them
+            number = digits
+        elif len(suffix) >= 2 and suffix not in ['CN', 'AS']:
+            # For other multi-letter suffixes, check if it's a meaningful suffix to keep
+            # Keep CN, AS; strip others like SLA, LA
+            if re.match(r'^[A-Z]+$', suffix) and len(suffix) <= 3:
+                # All-letter suffix like SLA, LA - strip it
+                number = digits
+            else:
+                # Keep the suffix (e.g., numeric section like -1, -2)
+                number = digits + suffix
+        else:
+            # Keep meaningful multi-letter suffixes like CN, AS
+            number = digits + suffix
+
+    # Strip leading zeros from number
+    number = str(int(number)) if number.isdigit() else number
+
+    return f"{subject}-{number}"
 
 
 def parse_response_rate(rate_str: str) -> float:
@@ -107,6 +167,56 @@ def is_unknown_instructor(name: str) -> bool:
     return name_lower in unknown_patterns
 
 
+def normalize_instructor_name(name: str) -> str:
+    """
+    Normalize instructor name for matching.
+
+    Removes middle initials and keeps first + last name.
+
+    Args:
+        name: Like "Susan H Rodger"
+
+    Returns:
+        Normalized like "susan rodger"
+    """
+    parts = name.lower().split()
+    # Keep first and last name, skip middle initials
+    if len(parts) >= 2:
+        return f"{parts[0]} {parts[-1]}"
+    return ' '.join(parts)
+
+
+def normalize_title(title: str) -> str:
+    """
+    Normalize course title for fuzzy matching.
+
+    - Lowercase
+    - Remove special characters
+    - Remove common stop words
+
+    Args:
+        title: Like "Introduction to African American Studies"
+
+    Returns:
+        Normalized like "african american studies"
+    """
+    if not title:
+        return ""
+
+    # Lowercase
+    title = title.lower()
+
+    # Remove special characters
+    title = re.sub(r'[^a-z0-9\s]', ' ', title)
+
+    # Remove common words
+    stop_words = {'intro', 'introduction', 'to', 'the', 'and', 'of', 'in', 'for', 'an', 'a'}
+    words = title.split()
+    words = [w for w in words if w not in stop_words]
+
+    return ' '.join(words)
+
+
 def parse_evaluation_course_code(course_str: str) -> Dict[str, any]:
     """
     Parse course code from evaluation data.
@@ -117,9 +227,9 @@ def parse_evaluation_course_code(course_str: str) -> Dict[str, any]:
     Returns:
         Dict with primary, section, cross_listed
 
-    TODO: Implement cross-listing detection
+    Note: Cross-listing extraction is handled in stage1_ingest.parse_evaluation_course_field
     """
-    # For now, just extract primary course code
+    # Extract primary course code
     primary_part = course_str.split(' : ')[0] if ' : ' in course_str else course_str
     parts = primary_part.split('-')
 
@@ -130,7 +240,7 @@ def parse_evaluation_course_code(course_str: str) -> Dict[str, any]:
         return {
             'primary': f"{subject}-{catalog}",
             'section': section,
-            'cross_listed': []  # TODO: Extract cross-listings
+            'cross_listed': []
         }
 
     return {
