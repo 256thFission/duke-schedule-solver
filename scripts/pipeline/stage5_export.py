@@ -111,10 +111,61 @@ def build_output_structure(data: Dict, config: Dict) -> Dict:
         skipped_no_schedule = 0
         skipped_empty_schedule = 0
 
+        # Diagnostic tracking
+        skip_reasons = {
+            'no_days': 0,
+            'no_start_time': 0,
+            'no_end_time': 0,
+            'empty_parsed_days': 0,
+            'empty_parsed_times': 0,
+            'encoding_failed': 0
+        }
+        skip_examples = []
+
         for section in sections:
+            # Detailed diagnostic checks
+            schedule = section.get('schedule', {})
+            raw_days = schedule.get('_raw_days', '')
+            raw_start = schedule.get('_raw_start', '')
+            raw_end = schedule.get('_raw_end', '')
+            parsed_days = schedule.get('days', [])
+            parsed_start = schedule.get('start_time', '')
+            parsed_end = schedule.get('end_time', '')
+
             # Check why sections might be skipped
             if not section.get('solver_schedule'):
                 skipped_no_schedule += 1
+
+                # Diagnose the reason
+                reason = []
+                if not raw_days:
+                    skip_reasons['no_days'] += 1
+                    reason.append('no_days_in_catalog')
+                if not raw_start:
+                    skip_reasons['no_start_time'] += 1
+                    reason.append('no_start_time_in_catalog')
+                if not raw_end:
+                    skip_reasons['no_end_time'] += 1
+                    reason.append('no_end_time_in_catalog')
+                if raw_days and not parsed_days:
+                    skip_reasons['empty_parsed_days'] += 1
+                    reason.append(f'failed_to_parse_days="{raw_days}"')
+                if (raw_start or raw_end) and not (parsed_start and parsed_end):
+                    skip_reasons['empty_parsed_times'] += 1
+                    reason.append(f'failed_to_parse_times="{raw_start}"-"{raw_end}"')
+                if raw_days and raw_start and raw_end and parsed_days and parsed_start and parsed_end:
+                    skip_reasons['encoding_failed'] += 1
+                    reason.append('encoding_failed_despite_valid_input')
+
+                # Collect examples
+                if len(skip_examples) < 10:
+                    skip_examples.append({
+                        'course': section.get('course_id'),
+                        'title': section.get('title', '')[:40],
+                        'reason': ', '.join(reason) if reason else 'unknown',
+                        'raw_days': raw_days[:20] if raw_days else 'EMPTY',
+                        'raw_times': f"{raw_start}-{raw_end}" if raw_start else 'EMPTY'
+                    })
                 continue
 
             if not section['solver_schedule'].get('time_slots'):
@@ -128,10 +179,26 @@ def build_output_structure(data: Dict, config: Dict) -> Dict:
                 solver_data_count += 1
 
         print(f"  Added solver_data to {solver_data_count}/{len(sections)} sections")
-        if skipped_no_schedule > 0:
-            print(f"  Skipped {skipped_no_schedule} sections without valid meeting times (TBA/online)")
+        print(f"  Skipped {skipped_no_schedule} sections without valid solver_schedule")
+
+        # Print detailed diagnostics
+        print("\n  Diagnostic breakdown of skipped sections:")
+        print(f"    Missing days in catalog: {skip_reasons['no_days']}")
+        print(f"    Missing start_time in catalog: {skip_reasons['no_start_time']}")
+        print(f"    Missing end_time in catalog: {skip_reasons['no_end_time']}")
+        print(f"    Failed to parse days: {skip_reasons['empty_parsed_days']}")
+        print(f"    Failed to parse times: {skip_reasons['empty_parsed_times']}")
+        print(f"    Encoding failed (valid input): {skip_reasons['encoding_failed']}")
+
+        if skip_examples:
+            print("\n  Sample of skipped sections:")
+            for ex in skip_examples:
+                print(f"    - {ex['course']}: {ex['title']}")
+                print(f"      Reason: {ex['reason']}")
+                print(f"      Raw: days={ex['raw_days']}, times={ex['raw_times']}")
+
         if skipped_empty_schedule > 0:
-            print(f"  Skipped {skipped_empty_schedule} sections with empty time_slots")
+            print(f"\n  Additionally skipped {skipped_empty_schedule} sections with empty time_slots")
 
     # Group by course
     courses_dict = group_sections_by_course(sections)

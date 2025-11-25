@@ -104,7 +104,10 @@ def normalize_catalog(catalog: List[Dict]) -> List[Dict]:
                 'days': days,
                 'start_time': start_time,
                 'end_time': end_time,
-                'location': meeting.get('facility_descr', '')
+                'location': meeting.get('facility_descr', ''),
+                '_raw_days': meeting.get('days', ''),  # Keep raw for diagnostics
+                '_raw_start': meeting.get('start_time', ''),
+                '_raw_end': meeting.get('end_time', '')
             },
             'enrollment': {
                 'capacity': entry.get('class_capacity', 0),
