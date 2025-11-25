@@ -68,8 +68,13 @@ def load_catalog(catalog_path: str) -> List[Dict]:
     """Load catalog JSON file."""
     print(f"Loading catalog from {catalog_path}")
     with open(catalog_path, 'r', encoding='utf-8') as f:
-        catalog = json.load(f)
-    print(f"Loaded {len(catalog)} catalog entries")
+        raw_catalog = json.load(f)
+    
+    # Filter for Duke campus only
+    catalog = [c for c in raw_catalog if c.get('campus') == 'DUKE']
+    filtered_count = len(raw_catalog) - len(catalog)
+    
+    print(f"Loaded {len(catalog)} catalog entries (filtered {filtered_count} off-campus classes)")
     return catalog
 
 

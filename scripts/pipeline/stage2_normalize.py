@@ -1,5 +1,6 @@
 """Stage 2: Normalize catalog and evaluation data."""
 from typing import List, Dict
+import re
 from . import utils
 
 
@@ -12,8 +13,63 @@ def normalize_catalog(catalog: List[Dict]) -> List[Dict]:
     """
     print("Normalizing catalog...")
     sections = []
+    skipped_independent_study = 0
+    skipped_special_topics = 0
 
     for entry in catalog:
+        # Check for Independent Study or Bass Connections
+        title = entry.get('descr', '')
+        if 'independent study' in title.lower() or 'bass' in title.lower():
+            skipped_independent_study += 1
+            continue
+
+        # Check for Special Topics
+        catalog_nbr = entry.get('catalog_nbr', '').strip()
+        # Extract numeric part only for comparison (handle 190S, 290A etc)
+        numeric_part = re.match(r'^\d+', catalog_nbr)
+        if numeric_part:
+            number = numeric_part.group(0)
+            
+            # Special Topics: 190, 290, 390, 490
+            if number in ['190', '290', '390', '490','401']:
+                skipped_special_topics += 1
+                continue
+                
+            # Independent Study Sequences (x91-x94) and Honors (495-496)
+            # Independent Study: x91-x92
+            # Research Independent Study: x93-x94
+            # Levels 200-700
+            # Honors Thesis: 495-496
+            
+            is_is_sequence = False
+            if len(number) == 3:
+                level = int(number[0])
+                suffix = int(number[1:])
+                
+                # Check x91-x94 for levels 2-7
+                if 2 <= level <= 7 and 91 <= suffix <= 94:
+                    is_is_sequence = True
+                # Check 495-496
+                elif number in ['495', '496']:
+                    is_is_sequence = True
+            
+            if is_is_sequence:
+                skipped_independent_study += 1
+                continue
+                
+        # Check for CNS suffix
+        if 'CNS' in catalog_nbr:
+            skipped_special_topics += 1
+            continue
+         # Check for CNS suffix
+        if 'CN' in catalog_nbr:
+            skipped_special_topics += 1
+            continue    
+        # Check for WRITING 120
+        if entry.get('subject') == 'WRITING' and number == '120':
+            skipped_special_topics += 1
+            continue
+
         # Get first instructor (TODO: handle multiple instructors properly)
         instructor = entry.get('instructors', [{}])[0] if entry.get('instructors') else {}
         instructor_name = instructor.get('name', '')
@@ -53,7 +109,7 @@ def normalize_catalog(catalog: List[Dict]) -> List[Dict]:
 
         sections.append(section)
 
-    print(f"Normalized {len(sections)} sections")
+    print(f"Normalized {len(sections)} sections (skipped {skipped_independent_study} independent study, {skipped_special_topics} special topics)")
     return sections
 
 
