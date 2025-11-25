@@ -1,0 +1,8 @@
+{
+  "missing_data_strategy": "neutral",
+  "paths": {
+    "raw_catalog": "data/catalog.json",
+    "evaluations_dir": "data/course_evaluations",
+    "output_processed": "data/processed/processed_courses.json"
+  }
+}

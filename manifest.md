@@ -65,9 +65,31 @@ Please view sample_catalog.json
 **Format:** Long-format CSV (One row per Response Option per Question per Course).
 
 
-You can view this on sam sample_free_text.csv, sample_questions.csv, and sample_responses.csv. 
+You can view this on sam sample_free_text.csv, sample_questions.csv, and sample_responses.csv.
 
 
 **Sample CSV Structure:**
 filename,course,instructor,question_number,mean,median,...
 AADS.html,AADS-201-01.AMES-276-01,Jaeyeon Yoo,3,4.50,4.50,...
+
+**Cross-Listed Course Format:**
+The `course` field uses a special format to encode cross-listings:
+```
+PRIMARY-CODE : COURSE_TITLE.CROSSLIST1.CROSSLIST2.CROSSLIST3...
+```
+
+Example:
+```
+COMPSCI-671D-001 : THEORY & ALG MACHINE LEARNING.COMPSCI-671D-001.ECE-687D-001.STA-671D-001.
+```
+
+**Important Notes:**
+- Cross-listed courses appear in EVERY department directory they belong to
+- The filename may use the primary course code even in other department directories
+- Example: `COMPSCI-671D-001_Barnett__Alina_Fall_2023.html` appears in both `ECE/reports/` and `COMPSCI/reports/`
+- The cross-listing information in the `course` field is the source of truth
+
+**Parsing Utilities:**
+See `cross_listing_parser.py` for comprehensive parsing and deduplication tools.
+See `csv_integration_example.py` for integration examples.
+See `CROSS_LISTING_ANALYSIS.md` for detailed documentation.
