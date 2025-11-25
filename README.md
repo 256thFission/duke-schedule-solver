@@ -78,13 +78,18 @@ See `data/processed/processed_courses.json` for the final output structure with:
 - Evaluation metrics (instructor quality, course quality, difficulty, etc.)
 - Confidence levels and data sources
 
-## Future Enhancements (TODOs)
+## Implemented Features
 
-- Cross-listing resolution and merging
+- Cross-listing resolution and merging (integrated in stages 1 & 3)
+- Fuzzy instructor name matching (handles name variations)
+- Department/course-level metric aggregation (stage 4)
+- Match failure logging and analysis (logs/match_failures.log)
+
+## Future Enhancements
+
 - Multiple instructor handling (currently uses first instructor only)
-- Fuzzy instructor name matching
-- Department/course-level metric aggregation
-- Validation and quality reporting
+- Real-time validation dashboard
+- Historical trend analysis across semesters
 
 ## Project Structure
 

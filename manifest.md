@@ -89,7 +89,7 @@ COMPSCI-671D-001 : THEORY & ALG MACHINE LEARNING.COMPSCI-671D-001.ECE-687D-001.S
 - Example: `COMPSCI-671D-001_Barnett__Alina_Fall_2023.html` appears in both `ECE/reports/` and `COMPSCI/reports/`
 - The cross-listing information in the `course` field is the source of truth
 
-**Parsing Utilities:**
-See `cross_listing_parser.py` for comprehensive parsing and deduplication tools.
-See `csv_integration_example.py` for integration examples.
-See `CROSS_LISTING_ANALYSIS.md` for detailed documentation.
+**Parsing Implementation:**
+Cross-listing parsing is integrated into the data pipeline:
+- `scripts/pipeline/stage1_ingest.py` - Extracts cross-listing information during ingestion
+- `scripts/pipeline/stage3_merge.py` - Uses cross-listing for evaluation matching
