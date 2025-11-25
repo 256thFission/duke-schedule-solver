@@ -10,9 +10,8 @@
     "time_resolution": "minutes",
     "week_start_day": "Monday",
     "shrinkage_parameters": {
-      "method": "empirical_bayes",
-      "min_variance_threshold": 0.1,
-      "min_sample_size_for_raw": 10
+      "method": "continuous_empirical_bayes",
+      "min_variance_threshold": 0.1
     },
     "z_score_parameters": {
       "enabled": true,

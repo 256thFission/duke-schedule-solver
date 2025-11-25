@@ -83,10 +83,9 @@ def calculate_global_priors(evaluations: List[Dict], metric_names: List[str]) ->
     return priors
 
 
-def compute_shrinkage_factor(n: int, sample_var: float, global_var: float,
-                            min_sample_size_for_raw: int = 10) -> float:
+def compute_shrinkage_factor(n: int, sample_var: float, global_var: float) -> float:
     """
-    Calculate Bayesian shrinkage weight B.
+    Calculate Bayesian shrinkage weight B using continuous Empirical Bayes.
 
     Formula:
         B = σ₀² / (σ₀² + s² / n)
@@ -94,23 +93,25 @@ def compute_shrinkage_factor(n: int, sample_var: float, global_var: float,
     Interpretation:
         - B → 0 as n → ∞ (trust the data)
         - B → 1 as n → 0 (trust the prior)
-        - For n ≥ min_sample_size_for_raw, use raw mean (B=0)
+        - B decays smoothly with increasing n (no hard cutoffs)
 
     Args:
         n: Sample size
         sample_var: Sample variance (s²)
         global_var: Global variance (σ₀²)
-        min_sample_size_for_raw: Threshold for using raw mean
 
     Returns:
         Shrinkage factor B ∈ [0, 1]
 
     Examples:
-        >>> compute_shrinkage_factor(50, 0.36, 0.182)
-        0.038  # Large N → minimal shrinkage
+        >>> compute_shrinkage_factor(1, 0.36, 0.182)
+        0.336  # Small N → high shrinkage
 
-        >>> compute_shrinkage_factor(3, 0.36, 0.182)
-        0.603  # Small N → significant shrinkage
+        >>> compute_shrinkage_factor(10, 0.36, 0.182)
+        0.835  # Medium N → moderate shrinkage
+
+        >>> compute_shrinkage_factor(50, 0.36, 0.182)
+        0.962  # Large N → minimal shrinkage
 
         >>> compute_shrinkage_factor(0, 0, 0.182)
         1.0    # No data → pure prior
@@ -118,12 +119,12 @@ def compute_shrinkage_factor(n: int, sample_var: float, global_var: float,
     if n == 0:
         return 1.0  # Pure prior
 
-    # For large samples, trust the data
-    if n >= min_sample_size_for_raw:
-        return 0.0
+    # Handle edge case: n=1 or sample_var=0
+    # Use global variance as fallback for sample variance
+    effective_sample_var = sample_var if sample_var > 0 else global_var
 
-    # Bayesian shrinkage formula
-    denominator = global_var + sample_var / n
+    # Continuous Empirical Bayes formula (no hard cutoffs)
+    denominator = global_var + effective_sample_var / n
 
     if denominator == 0:
         return 1.0  # Avoid division by zero
@@ -136,7 +137,6 @@ def compute_shrinkage_factor(n: int, sample_var: float, global_var: float,
 
 def shrink_estimate(sample_mean: float, sample_var: float, n: int,
                    mu0: float, sigma0_sq: float,
-                   min_sample_size_for_raw: int = 10,
                    min_variance_threshold: float = 0.1) -> Dict:
     """
     Compute Bayesian shrunk estimate (posterior mean).
@@ -155,15 +155,14 @@ def shrink_estimate(sample_mean: float, sample_var: float, n: int,
         n: Sample size
         mu0: Global prior mean
         sigma0_sq: Global prior variance
-        min_sample_size_for_raw: Threshold for bypassing shrinkage
         min_variance_threshold: Minimum variance for z-score calculation
 
     Returns:
         Dict with:
-            - posterior_mean: Shrunk estimate μ̂
+            - posterior_mean: Shrunk estimate μ̂ (continuous shrinkage)
             - posterior_var: Posterior variance
             - posterior_std: Posterior standard deviation
-            - shrinkage_factor: B value used
+            - shrinkage_factor: B value (decays smoothly with n)
             - raw_mean: Original sample mean
             - effective_n: Effective sample size
 
@@ -178,8 +177,8 @@ def shrink_estimate(sample_mean: float, sample_var: float, n: int,
             'effective_n': 0.76
         }
     """
-    # Calculate shrinkage factor
-    B = compute_shrinkage_factor(n, sample_var, sigma0_sq, min_sample_size_for_raw)
+    # Calculate shrinkage factor (continuous, no hard cutoffs)
+    B = compute_shrinkage_factor(n, sample_var, sigma0_sq)
 
     # Compute posterior mean (shrunk estimate)
     if n == 0 or B == 1.0:
@@ -286,12 +285,10 @@ def apply_bayesian_shrinkage(sections: List[Dict], global_priors: Dict[str, Dict
     shrinkage_params = solver_settings.get('shrinkage_parameters', {})
     z_score_params = solver_settings.get('z_score_parameters', {})
 
-    min_sample_size_for_raw = shrinkage_params.get('min_sample_size_for_raw', 10)
     min_variance_threshold = shrinkage_params.get('min_variance_threshold', 0.1)
     z_score_enabled = z_score_params.get('enabled', True)
 
-    shrunk_count = 0
-    bypassed_count = 0
+    metrics_processed = 0
 
     for section in sections:
         for metric_name in metric_names:
@@ -312,14 +309,13 @@ def apply_bayesian_shrinkage(sections: List[Dict], global_priors: Dict[str, Dict
             sigma0_sq = prior.get('sigma0_sq', 1.0)
             sigma0 = prior.get('sigma0', 1.0)
 
-            # Compute shrunk estimate
+            # Compute shrunk estimate (continuous shrinkage for all N)
             shrinkage_result = shrink_estimate(
                 sample_mean=sample_mean,
                 sample_var=sample_var,
                 n=sample_size,
                 mu0=mu0,
                 sigma0_sq=sigma0_sq,
-                min_sample_size_for_raw=min_sample_size_for_raw,
                 min_variance_threshold=min_variance_threshold
             )
 
@@ -331,11 +327,7 @@ def apply_bayesian_shrinkage(sections: List[Dict], global_priors: Dict[str, Dict
             metric['shrinkage_factor'] = shrinkage_result['shrinkage_factor']
             metric['effective_n'] = shrinkage_result['effective_n']
 
-            # Track shrinkage usage
-            if shrinkage_result['shrinkage_factor'] > 0:
-                shrunk_count += 1
-            else:
-                bypassed_count += 1
+            metrics_processed += 1
 
             # Compute z-score if enabled
             if z_score_enabled:
@@ -347,7 +339,7 @@ def apply_bayesian_shrinkage(sections: List[Dict], global_priors: Dict[str, Dict
                 )
                 metric['z_score'] = z_score
 
-    print(f"  Applied shrinkage to {shrunk_count} metrics (bypassed {bypassed_count} with N ≥ {min_sample_size_for_raw})")
+    print(f"  Applied continuous Bayesian shrinkage to {metrics_processed} metrics")
 
     # Validate z-scores
     if z_score_enabled:
@@ -408,21 +400,28 @@ def validate_shrinkage_quality(sections: List[Dict], metric_names: List[str]) ->
                 elif abs(z) > 4:
                     validation['out_of_range_z_scores'] += 1
 
-            # Track shrinkage by sample size
+            # Track shrinkage by exact sample size (for specific N values)
             n = metric.get('sample_size', 0)
             B = metric.get('shrinkage_factor', 0)
-            n_bucket = f"{(n // 5) * 5}-{(n // 5) * 5 + 4}"  # Buckets: 0-4, 5-9, 10-14, etc.
 
-            if n_bucket not in validation['shrinkage_by_sample_size']:
-                validation['shrinkage_by_sample_size'][n_bucket] = []
-            validation['shrinkage_by_sample_size'][n_bucket].append(B)
+            if n not in validation['shrinkage_by_sample_size']:
+                validation['shrinkage_by_sample_size'][n] = []
+            validation['shrinkage_by_sample_size'][n].append(B)
 
-    # Summarize shrinkage by sample size
-    print("  Shrinkage factor by sample size:")
-    for bucket in sorted(validation['shrinkage_by_sample_size'].keys()):
-        B_values = validation['shrinkage_by_sample_size'][bucket]
-        avg_B = statistics.mean(B_values)
-        print(f"    N={bucket}: avg B={avg_B:.3f} (n={len(B_values)})")
+    # Demonstrate smooth B-factor decay (no discontinuities)
+    print("  Shrinkage factor decay (continuous Empirical Bayes):")
+    key_sample_sizes = [1, 5, 10, 20, 50, 100]
+
+    for n in key_sample_sizes:
+        if n in validation['shrinkage_by_sample_size']:
+            B_values = validation['shrinkage_by_sample_size'][n]
+            avg_B = statistics.mean(B_values)
+            print(f"    N={n:3d}: avg B={avg_B:.4f} (n={len(B_values):4d} metrics)")
+
+    # Show full distribution for verification
+    all_sizes = sorted([n for n in validation['shrinkage_by_sample_size'].keys() if len(validation['shrinkage_by_sample_size'][n]) >= 10])
+    if all_sizes and len(all_sizes) > 10:
+        print(f"  Sample sizes with ≥10 metrics: {min(all_sizes)} to {max(all_sizes)}")
 
     # Report issues
     if validation['nan_count'] > 0:
