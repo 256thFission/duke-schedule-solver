@@ -1,7 +1,6 @@
-course_evaluations/
 
 *v2.csv
-
+data/*
 # Python
 __pycache__/
 *.pyc
