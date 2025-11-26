@@ -3,26 +3,54 @@
     "intellectual_stimulation": 0.35,
     "overall_course_quality": 0.25,
     "overall_instructor_quality": 0.20,
-    "course_difficulty": 0.00,
+    "course_difficulty": -0.20,
     "hours_per_week": -0.20
+  },
+  "filters": {
+    "_comment": "Toggle which course types to EXCLUDE from results",
+    "independent_study": true,
+    "special_topics": true,
+    "tutorial": true,
+    "constellation": true,
+    "service_learning": false,
+    "fee_courses": true,
+    "permission_required": false,
+    "honors": true,
+    "internship": true,
+    "program_specific": {
+      "_comment": "Exclude courses tied to specific certificate/program cohorts",
+      "enabled": false,
+      "programs": ["MMS", "ISLAMST", "LATAM", "ENENV", "PJRMS", "RIGHT", "GENSP"]
+    },
+    "title_keywords": {
+      "_comment": "Exclude courses with these keywords in title (case-insensitive)",
+      "enabled": true,
+      "keywords": ["independent study", "bass connections", "internship", "capstone", "practicum"]
+    },
+    "catalog_number_patterns": {
+      "_comment": "Exclude courses matching these catalog number patterns",
+      "special_topics_numbers": ["190", "290", "390", "490", "401"],
+      "is_sequence_pattern": true,
+      "honors_thesis_numbers": ["495", "496"]
+    }
   },
   "constraints": {
     "num_courses": 4,
-    "earliest_class_time": "08:00",
-    "required_courses": [],
+    "earliest_class_time": "10:00",
+    "required_courses": ["STA-402L"],
     "useful_attributes": {
-      "enabled": false,
-      "attributes": ["W", "QS", "NS"],
+      "enabled": true ,
+      "attributes": ["SS", "CZ", "NS","W"],
       "min_courses": 1
     },
     "days_off": {
-      "enabled": false,
-      "min_days_off": 2,
+      "enabled": 1,
+      "min_days_off": 1,
       "weekdays_only": true
     }
   },
   "solver_params": {
-    "max_time_seconds": 30,
+    "max_time_seconds": 120,
     "num_solutions": 5
   }
 }
