@@ -5,9 +5,15 @@ This utility aggregates Duke University course catalog data and historical cours
 
 **Goal:** Maximize schedule utility based on user constraints (time, major requirements) and quality metrics (instructor ratings, grading difficulty).
 
+**Key Features:**
+- 5-stage ETL pipeline with Bayesian shrinkage for robust statistics
+- Integer time encoding for O(1) conflict detection
+- Z-score standardization for multi-objective optimization
+- Solver-ready JSON output (Binary Integer Programming compatible)
+
 ### 1.1. Repository Ecosystem
-Core Logic: [Current Repo] - Data ingestion, merging, and optimization solver.  
-Authentication: 256thFission/duke-sso-auth - Handles Shibboleth/NetID authentication flow.  
+Core Logic: [Current Repo] - Data ingestion, merging, and optimization solver.
+Authentication: 256thFission/duke-sso-auth - Handles Shibboleth/NetID authentication flow.
 Data Sourcing: 256thFission/duke-catalog-scraper - Selenium/Soup based scraper.
 
 ---
@@ -93,3 +99,40 @@ COMPSCI-671D-001 : THEORY & ALG MACHINE LEARNING.COMPSCI-671D-001.ECE-687D-001.S
 Cross-listing parsing is integrated into the data pipeline:
 - `scripts/pipeline/stage1_ingest.py` - Extracts cross-listing information during ingestion
 - `scripts/pipeline/stage3_merge.py` - Uses cross-listing for evaluation matching
+
+---
+
+## 3. Solver-Ready Output Features
+
+### 3.1. Integer Time Encoding
+**Implementation:** `scripts/pipeline/time_encoder.py`
+
+Converts human-readable schedules to absolute integer minutes:
+- Monday 00:00 = 0 minutes
+- Tuesday 10:05 = 2045 minutes
+- Enables O(1) conflict detection vs O(k) string parsing
+
+### 3.2. Bayesian Shrinkage
+**Implementation:** `scripts/pipeline/bayesian_stats.py`
+
+Handles small sample sizes using Empirical Bayes:
+- Formula: `μ̂ = B × x̄ + (1-B) × μ₀`
+- Prevents overfitting to small samples (N < 10)
+- Produces statistically robust estimates
+
+### 3.3. Z-Score Standardization
+Normalizes all metrics to unit variance:
+- Formula: `z = (μ̂ - μ₀) / σ₀`
+- Enables multi-objective optimization
+- Allows linear combination of metrics with different scales
+
+### 3.4. Output Schema
+Processed JSON includes solver-ready fields:
+- `solver_data.integer_schedule` - Time intervals in minutes
+- `solver_data.day_bitmask` - 7-bit integer for fast day checks
+- `solver_data.metrics_z_scores` - Standardized metric scores
+- `solver_data.risk_metrics` - Uncertainty estimates
+
+**For detailed technical documentation, see:**
+- `README.md` - User guide and examples
+- `data-pipeline.md` - Pipeline architecture and mathematical foundations

@@ -60,7 +60,12 @@ def run_pipeline(config_path: str = 'config/pipeline_config.json'):
     # Stage 4: Aggregate
     print("STAGE 4: AGGREGATE")
     print("-" * 60)
-    aggregated_data = stage4_aggregate.aggregate(merged_sections, config)
+    # Pass evaluations for Bayesian shrinkage
+    aggregated_data = stage4_aggregate.aggregate(
+        merged_sections,
+        config,
+        evaluations=normalized_data.get('evaluations', [])
+    )
     print()
 
     # Stage 5: Export

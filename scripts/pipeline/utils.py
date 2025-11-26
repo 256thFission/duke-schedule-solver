@@ -27,12 +27,30 @@ def parse_days(days_str: str) -> List[str]:
         days_str: Days like "TuTh", "MoWeFr"
 
     Returns:
-        List like ["Tu", "Th"]
+        List like ["Tu", "Th"] in format compatible with time_encoder
+        (M, Tu, W, Th, F, Sa, Su)
     """
     if not days_str:
         return []
+
+    # First extract the full day names
     pattern = r'(Mo|Tu|We|Th|Fr|Sa|Su)'
-    return re.findall(pattern, days_str)
+    raw_days = re.findall(pattern, days_str)
+
+    # Map to time_encoder format
+    # time_encoder expects: M, Tu, W, Th, F, Sa, Su
+    # catalog provides: Mo, Tu, We, Th, Fr, Sa, Su
+    day_mapping = {
+        'Mo': 'M',   # Monday
+        'Tu': 'Tu',  # Tuesday (no change)
+        'We': 'W',   # Wednesday
+        'Th': 'Th',  # Thursday (no change)
+        'Fr': 'F',   # Friday
+        'Sa': 'Sa',  # Saturday (no change)
+        'Su': 'Su'   # Sunday (no change)
+    }
+
+    return [day_mapping.get(day, day) for day in raw_days]
 
 
 def normalize_course_code(subject: str, catalog_nbr: str = None) -> str:
