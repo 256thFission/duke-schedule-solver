@@ -5,6 +5,58 @@ from . import utils
 from .time_encoder import encode_schedule
 
 
+def parse_course_attributes(crse_attr_value: str) -> List[str]:
+    """
+    Parse course attribute string and extract useful requirement designations.
+
+    Examples of useful attributes:
+    - W: Writing
+    - QS: Quantitative Studies
+    - NS: Natural Sciences
+    - SS: Social Sciences
+    - CZ: Cross-Cultural Inquiry
+    - CCI: Cross-Cultural Inquiry
+    - EI: Ethical Inquiry
+    - STS: Science, Technology & Society
+    - ALP: Arts, Literature & Philosophy
+
+    Args:
+        crse_attr_value: Comma-separated attribute string (e.g., "BLTN-U,USE-SS,USE-W")
+
+    Returns:
+        List of useful requirement codes
+    """
+    if not crse_attr_value:
+        return []
+
+    # Map of attribute prefixes to requirement codes
+    # USE- prefix is for "Undergraduate Studies Elective"
+    attribute_map = {
+        'USE-W': 'W',          # Writing
+        'USE-QS': 'QS',        # Quantitative Studies
+        'USE-NS': 'NS',        # Natural Sciences
+        'USE-SS': 'SS',        # Social Sciences
+        'USE-CZ': 'CZ',        # Cross-Cultural Inquiry
+        'USE-CCI': 'CCI',      # Cross-Cultural Inquiry (alternative)
+        'USE-EI': 'EI',        # Ethical Inquiry
+        'USE-STS': 'STS',      # Science, Technology & Society
+        'USE-ALP': 'ALP',      # Arts, Literature & Philosophy
+        'TRIN-IJ': 'IJ',       # Interdisciplinary (Trinity)
+        'TRIN-FL': 'FL',       # Foreign Language (Trinity)
+    }
+
+    # Parse comma-separated attributes
+    raw_attrs = [attr.strip() for attr in crse_attr_value.split(',')]
+
+    # Extract useful requirements
+    requirements = []
+    for raw_attr in raw_attrs:
+        if raw_attr in attribute_map:
+            requirements.append(attribute_map[raw_attr])
+
+    return sorted(set(requirements))  # Remove duplicates and sort
+
+
 def normalize_catalog(catalog: List[Dict]) -> List[Dict]:
     """
     Normalize catalog entries.
@@ -103,6 +155,9 @@ def normalize_catalog(catalog: List[Dict]) -> List[Dict]:
         start_time = utils.parse_time(meeting.get('start_time', ''))
         end_time = utils.parse_time(meeting.get('end_time', ''))
 
+        # Parse course attributes (requirements like W, QS, NS, SS, etc.)
+        attributes = parse_course_attributes(entry.get('crse_attr_value', ''))
+
         section = {
             'course_id': course_id,
             'subject': entry['subject'],
@@ -129,6 +184,9 @@ def normalize_catalog(catalog: List[Dict]) -> List[Dict]:
                 'capacity': entry.get('class_capacity', 0),
                 'enrolled': entry.get('enrollment_total', 0),
                 'available': entry.get('enrollment_available', 0)
+            },
+            'attributes': {
+                'requirements': attributes  # List of requirement codes (W, QS, NS, SS, etc.)
             }
         }
 
