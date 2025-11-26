@@ -20,7 +20,7 @@ def normalize_catalog(catalog: List[Dict]) -> List[Dict]:
     for entry in catalog:
         # Check for Independent Study or Bass Connections
         title = entry.get('descr', '')
-        if 'independent study' in title.lower() or 'bass' in title.lower():
+        if 'independent study' in title.lower() or 'bass' in title.lower() or 'internship' in title.lower() or 'capstone' in title.lower():
             skipped_independent_study += 1
             continue
 
