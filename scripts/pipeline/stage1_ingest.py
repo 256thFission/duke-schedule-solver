@@ -67,7 +67,7 @@ def load_catalog(catalog_path: str) -> List[Dict]:
         raw_catalog = json.load(f)
     
     # Filter for Duke campus only
-    catalog = [c for c in raw_catalog if c.get('campus') == 'DUKE']
+    catalog = [c for c in raw_catalog if (c.get('campus') == 'DUKE')& (c.get('location') == 'DURHAM') ]
     filtered_count = len(raw_catalog) - len(catalog)
     
     print(f"Loaded {len(catalog)} catalog entries (filtered {filtered_count} off-campus classes)")
