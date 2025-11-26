@@ -55,25 +55,39 @@ class Section:
             KeyError: If required fields are missing
             ValueError: If data is malformed
         """
+        # Build section_id from components (pipeline doesn't have direct section_id)
+        course_id = section_dict.get('course_id')
+        section_num = section_dict.get('section', '')
+        term = section_dict.get('term', '')
+        class_nbr = section_dict.get('class_nbr', '')
+
+        # Construct section_id: COURSE-ID-SECTION-TERM or fallback to class_nbr
+        if course_id and section_num and term:
+            section_id = f"{course_id}-{section_num}-{term}"
+        elif class_nbr:
+            section_id = f"SECTION-{class_nbr}"
+        else:
+            section_id = f"UNKNOWN-{id(section_dict)}"
+
         # Extract solver_data
         solver_data = section_dict.get('solver_data')
         if not solver_data:
-            raise ValueError(f"Section {section_dict.get('section_id')} missing solver_data")
+            raise ValueError(f"Section {section_id} missing solver_data")
 
         # Convert integer_schedule from list of lists to list of tuples
         int_sched_raw = solver_data.get('integer_schedule')
         if int_sched_raw is None:
-            raise ValueError(
-                f"Section {section_dict.get('section_id')} has no integer_schedule"
-            )
+            raise ValueError(f"Section {section_id} has no integer_schedule")
 
         int_sched = [tuple(interval) for interval in int_sched_raw]
 
         # Extract z-scores
         z_scores = solver_data.get('metrics_z_scores', {})
 
-        # Extract attributes
-        attributes = section_dict.get('attributes', {}).get('requirements', [])
+        # Extract attributes (may not exist in all sections)
+        attributes = section_dict.get('attributes', {})
+        if isinstance(attributes, dict):
+            attributes = attributes.get('requirements', [])
         if not isinstance(attributes, list):
             attributes = []
 
@@ -85,9 +99,9 @@ class Section:
         instructor_name = instructor.get('name', 'Unknown')
 
         return cls(
-            section_id=section_dict['section_id'],
-            course_id=section_dict['course_id'],
-            title=section_dict['title'],
+            section_id=section_id,
+            course_id=course_id or 'UNKNOWN',
+            title=section_dict.get('title', 'Unknown Course'),
             instructor_name=instructor_name,
             integer_schedule=int_sched,
             day_indices=solver_data['day_indices'],
@@ -134,26 +148,42 @@ def load_sections(pipeline_output_path: str) -> List[Section]:
         data = json.load(f)
 
     sections = []
-    skipped_count = 0
+    skipped_no_schedule = 0
+    skipped_errors = 0
+    error_samples = []  # Collect first few errors for debugging
 
     for course in data.get('courses', []):
         for section_dict in course.get('sections', []):
+            # Build identifier for error messages
+            course_id = section_dict.get('course_id', 'UNKNOWN')
+            section_num = section_dict.get('section', '?')
+            identifier = f"{course_id}-{section_num}"
+
             # Skip sections without schedules (online async, TBA, etc.)
             solver_data = section_dict.get('solver_data', {})
             if solver_data.get('integer_schedule') is None:
-                skipped_count += 1
+                skipped_no_schedule += 1
                 continue
 
             try:
                 section = Section.from_pipeline_output(section_dict)
                 sections.append(section)
             except (KeyError, ValueError) as e:
-                print(f"Warning: Skipping section {section_dict.get('section_id')}: {e}")
-                skipped_count += 1
+                if len(error_samples) < 3:  # Collect first 3 errors
+                    error_samples.append((identifier, str(e)))
+                skipped_errors += 1
 
     print(f"  Loaded {len(sections)} sections")
-    if skipped_count > 0:
-        print(f"  Skipped {skipped_count} sections (no schedule or invalid data)")
+
+    if skipped_no_schedule > 0:
+        print(f"  Skipped {skipped_no_schedule} sections (no schedule/TBA)")
+
+    if skipped_errors > 0:
+        print(f"  Skipped {skipped_errors} sections (errors)")
+        if error_samples:
+            print(f"  Sample errors:")
+            for identifier, error in error_samples:
+                print(f"    - {identifier}: {error}")
 
     return sections
 
