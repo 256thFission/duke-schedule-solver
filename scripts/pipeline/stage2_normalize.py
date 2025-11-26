@@ -14,14 +14,17 @@ def parse_course_attributes(crse_attr_value: str) -> List[str]:
     - QS: Quantitative Studies
     - NS: Natural Sciences
     - SS: Social Sciences
+    - R: Research
     - CZ: Cross-Cultural Inquiry
     - CCI: Cross-Cultural Inquiry
     - EI: Ethical Inquiry
     - STS: Science, Technology & Society
     - ALP: Arts, Literature & Philosophy
+    - IJ: Interdisciplinary
+    - FL: Foreign Language
 
     Args:
-        crse_attr_value: Comma-separated attribute string (e.g., "BLTN-U,USE-SS,USE-W")
+        crse_attr_value: Comma-separated attribute string (e.g., "BLTN-U,USE-SS,USE-W,USE-R")
 
     Returns:
         List of useful requirement codes
@@ -41,6 +44,7 @@ def parse_course_attributes(crse_attr_value: str) -> List[str]:
         'USE-EI': 'EI',        # Ethical Inquiry
         'USE-STS': 'STS',      # Science, Technology & Society
         'USE-ALP': 'ALP',      # Arts, Literature & Philosophy
+        'USE-R': 'R',          # Research
         'TRIN-IJ': 'IJ',       # Interdisciplinary (Trinity)
         'TRIN-FL': 'FL',       # Foreign Language (Trinity)
     }
@@ -158,6 +162,13 @@ def normalize_catalog(catalog: List[Dict]) -> List[Dict]:
         # Parse course attributes (requirements like W, QS, NS, SS, etc.)
         attributes = parse_course_attributes(entry.get('crse_attr_value', ''))
 
+        # Parse credit hours (units) - convert to float for calculations
+        units_str = entry.get('units', '1.0')
+        try:
+            credits = float(units_str)
+        except (ValueError, TypeError):
+            credits = 1.0  # Default to 1 credit if parsing fails
+
         section = {
             'course_id': course_id,
             'subject': entry['subject'],
@@ -166,6 +177,7 @@ def normalize_catalog(catalog: List[Dict]) -> List[Dict]:
             'class_nbr': entry['class_nbr'],
             'term': entry['strm'],
             'title': entry['descr'],
+            'credits': credits,  # Credit hours (typically 0.5, 1.0, 1.5, etc.)
             'instructor': {
                 'name': instructor_name,
                 'email': instructor_email,
