@@ -4,6 +4,7 @@ import re
 import json
 from pathlib import Path
 from . import utils
+from .utils import parse_prerequisites
 from .time_encoder import encode_schedule
 
 
@@ -403,6 +404,19 @@ def normalize_catalog(catalog: List[Dict], filter_config: Dict = None) -> List[D
                 'flags': flags,  # Filtering flags (is_service_learning, is_fee_course, etc.)
                 '_raw': list(raw_attrs)  # Raw attribute tags for debugging
             }
+        }
+
+        # Parse prerequisites from catalog description
+        catalog_description = entry.get('catalog_description', '')
+        prereq_data = parse_prerequisites(catalog_description)
+        section['prerequisites'] = {
+            'courses': prereq_data['prerequisites'],
+            'corequisites': prereq_data['corequisites'],
+            'recommended': prereq_data['recommended'],
+            'has_consent_requirement': prereq_data['has_consent_requirement'],
+            'has_equivalent_option': prereq_data['has_equivalent_option'],
+            '_raw_text': prereq_data['raw_prerequisite_text'],
+            '_raw_coreq_text': prereq_data['raw_corequisite_text'],
         }
 
         # Add solver-ready integer schedule representation
