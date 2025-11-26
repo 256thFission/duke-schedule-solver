@@ -142,12 +142,12 @@ def shrink_estimate(sample_mean: float, sample_var: float, n: int,
     Compute Bayesian shrunk estimate (posterior mean).
 
     Formula:
-        μ̂ = (1 - B) × x̄ + B × μ₀
+        μ̂ = B × x̄ + (1 - B) × μ₀
 
     Where:
         x̄ = sample mean
         μ₀ = global prior mean
-        B = shrinkage factor
+        B = shrinkage factor (high for large n, low for small n)
 
     Args:
         sample_mean: Sample mean (x̄)
@@ -169,10 +169,10 @@ def shrink_estimate(sample_mean: float, sample_var: float, n: int,
     Example:
         >>> shrink_estimate(4.5, 0.36, 3, 4.168, 0.182)
         {
-            'posterior_mean': 4.30,     # Shrunk toward prior
+            'posterior_mean': 4.37,     # Shrunk toward prior (small n=3)
             'posterior_var': 0.24,
             'posterior_std': 0.49,
-            'shrinkage_factor': 0.60,
+            'shrinkage_factor': 0.60,   # Low B for small sample
             'raw_mean': 4.5,
             'effective_n': 0.76
         }
@@ -181,13 +181,15 @@ def shrink_estimate(sample_mean: float, sample_var: float, n: int,
     B = compute_shrinkage_factor(n, sample_var, sigma0_sq)
 
     # Compute posterior mean (shrunk estimate)
-    if n == 0 or B == 1.0:
-        # No data or pure prior
+    if n == 0:
+        # No data: use pure prior
         posterior_mean = mu0
         posterior_var = sigma0_sq
     else:
         # Weighted average of sample mean and prior
-        posterior_mean = (1 - B) * sample_mean + B * mu0
+        # B is high when n is large (trust data)
+        # B is low when n is small (trust prior)
+        posterior_mean = B * sample_mean + (1 - B) * mu0
 
         # Posterior variance (simplified empirical Bayes)
         # True Bayesian: more complex; this is practical approximation
@@ -446,16 +448,16 @@ if __name__ == "__main__":
     B_large = compute_shrinkage_factor(50, 0.36, 0.182)
     B_small = compute_shrinkage_factor(3, 0.36, 0.182)
     B_zero = compute_shrinkage_factor(0, 0, 0.182)
-    print(f"  Large N (50): B={B_large:.4f} (should be close to 0)")
-    print(f"  Small N (3):  B={B_small:.4f} (should be > 0.5)")
-    print(f"  Zero N:       B={B_zero:.4f} (should be 1.0)")
+    print(f"  Large N (50): B={B_large:.4f} (should be close to 1.0 - trust data)")
+    print(f"  Small N (3):  B={B_small:.4f} (should be moderate - balanced)")
+    print(f"  Zero N:       B={B_zero:.4f} (should be 1.0, but n=0 uses prior directly)")
 
     # Test 2: Shrink estimate
     print("\nTest 2: Shrunk Estimates")
     result_large = shrink_estimate(4.5, 0.36, 50, 4.168, 0.182)
     result_small = shrink_estimate(4.5, 0.36, 3, 4.168, 0.182)
-    print(f"  Large N: raw={result_large['raw_mean']}, posterior={result_large['posterior_mean']} (minimal shrinkage)")
-    print(f"  Small N: raw={result_small['raw_mean']}, posterior={result_small['posterior_mean']} (significant shrinkage)")
+    print(f"  Large N (50): raw={result_large['raw_mean']}, posterior={result_large['posterior_mean']}, B={result_large['shrinkage_factor']} (minimal shrinkage - trust data)")
+    print(f"  Small N (3):  raw={result_small['raw_mean']}, posterior={result_small['posterior_mean']}, B={result_small['shrinkage_factor']} (moderate shrinkage toward prior)")
 
     # Test 3: Z-scores
     print("\nTest 3: Z-Scores")
