@@ -1,0 +1,11 @@
+# Duke Course Schedule Solver - Python Dependencies
+
+# Binary Integer Programming Solver
+ortools>=9.7.0
+
+# Data processing (for pipeline)
+pandas>=1.5.0
+numpy>=1.23.0
+
+# Optional: For better CLI formatting
+colorama>=0.4.6
