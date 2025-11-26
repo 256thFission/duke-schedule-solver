@@ -1,0 +1,28 @@
+{
+  "objective_weights": {
+    "intellectual_stimulation": 0.35,
+    "overall_course_quality": 0.25,
+    "overall_instructor_quality": 0.20,
+    "course_difficulty": 0.00,
+    "hours_per_week": -0.20
+  },
+  "constraints": {
+    "num_courses": 4,
+    "earliest_class_time": "08:00",
+    "required_courses": [],
+    "useful_attributes": {
+      "enabled": false,
+      "attributes": ["W", "QS", "NS"],
+      "min_courses": 1
+    },
+    "days_off": {
+      "enabled": false,
+      "min_days_off": 2,
+      "weekdays_only": true
+    }
+  },
+  "solver_params": {
+    "max_time_seconds": 30,
+    "num_solutions": 5
+  }
+}
