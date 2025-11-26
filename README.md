@@ -113,6 +113,13 @@ data/
     "enrolled": 45,
     "available": 3
   },
+  "prerequisites": {
+    "courses": ["COMPSCI-101", "COMPSCI-102"],
+    "corequisites": [],
+    "recommended": [],
+    "has_consent_requirement": false,
+    "has_equivalent_option": true
+  },
   "metrics": {
     "intellectual_stimulation": {
       "raw_mean": 4.52,
@@ -155,6 +162,13 @@ data/
 - `z > 0`: Better than average
 - `z = 0`: Average
 - `z < 0`: Below average
+
+**prerequisites**: Course requirements parsed from catalog descriptions
+- `courses`: Hard prerequisite course codes (e.g., `["COMPSCI-101", "MATH-216"]`)
+- `corequisites`: Courses that must be taken concurrently
+- `recommended`: Suggested but not required prerequisites
+- `has_consent_requirement`: True if instructor consent is needed
+- `has_equivalent_option`: True if "or equivalent" is mentioned
 
 ---
 
