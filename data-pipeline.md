@@ -158,11 +158,9 @@ Example: `COMPSCI-671D-001 : THEORY & ALG MACHINE LEARNING.COMPSCI-671D-001.ECE-
 **File:** `scripts/pipeline/stage1_ingest.py`
 
 **Operations:**
-- Load catalog JSON → validate fields (class_nbr, subject, instructors, meetings)
-- Load evaluation CSVs → map Q3,5,6,8,9 to metric names
-- Filter Duke campus only (exclude off-campus)
-- Extract cross-listing information from course field
-
+- Load catalog JSON 
+- Load evaluation CSVs 
+- Extract cross-listing information 
 ### Stage 2: Normalize
 **File:** `scripts/pipeline/stage2_normalize.py`
 
@@ -171,29 +169,15 @@ Example: `COMPSCI-671D-001 : THEORY & ALG MACHINE LEARNING.COMPSCI-671D-001.ECE-
 - Parse days: `"TuTh"` → `["Tu", "Th"]`
 - Normalize course codes: `(subject, catalog_nbr)` → `"SUBJ-NUM"`
 - Detect unknown instructors (TBA, Departmental Staff)
-- **NEW:** Generate `solver_schedule` using `time_encoder.encode_schedule()`
+- Generate `solver_schedule` using `time_encoder.encode_schedule()`
 
-**Filtering Exclusions:**
+**Deflat Filtering Exclusions:**
 - Independent Study (x91-x94)
 - Special Topics (190/290/390/490/401)
 - Honors (495-496)
-- Bass Connections, WRITING 120
-- Internships, Capstone, Tutorial sections
-- CN/CNS course suffixes
-
-**Time Encoder Integration:**
-```python
-from scripts.pipeline.time_encoder import encode_schedule
-
-if schedule['days'] and schedule['start_time'] and schedule['end_time']:
-    section['solver_schedule'] = encode_schedule(
-        schedule['days'],
-        schedule['start_time'],
-        schedule['end_time']
-    )
-else:
-    section['solver_schedule'] = None  # TBA/Online
-```
+- Bass Connections
+- Internships / Capstone / Thesis
+- Constellations (CNS/CN)
 
 ### Stage 3: Merge
 **File:** `scripts/pipeline/stage3_merge.py`
@@ -206,21 +190,6 @@ else:
   3. Cross-listing match (exact instructor match)
   4. Fallback: course-only aggregate
 
-**Matching Algorithm:**
-```python
-# 1. Try course+instructor match by email
-if instructor_email in evaluation_index:
-    match = evaluation_index[instructor_email][course_id]
-
-# 2. Try cross-listing match
-if course_id in cross_listing_index:
-    canonical_id = cross_listing_index[course_id]
-    match = evaluation_index[canonical_id]
-
-# 3. Fallback to course-only aggregate
-if course_id in course_aggregate_index:
-    match = course_aggregate_index[course_id]
-```
 
 ### Stage 4: Aggregate
 **File:** `scripts/pipeline/stage4_aggregate.py`
@@ -232,65 +201,20 @@ if course_id in course_aggregate_index:
 4. **Compute z-scores** for multi-objective optimization
 5. Impute missing metrics using strategy (neutral/conservative)
 
-**Bayesian Shrinkage Integration:**
-```python
-from scripts.pipeline.bayesian_stats import (
-    calculate_global_priors,
-    apply_bayesian_shrinkage,
-    validate_shrinkage_quality
-)
-
-# Calculate priors BEFORE aggregation
-global_priors = calculate_global_priors(raw_evaluations, metric_names)
-
-# ... aggregation happens ...
-
-# Apply shrinkage to aggregated metrics
-apply_bayesian_shrinkage(sections, global_priors, metric_names, config)
-
-# Validate results
-validate_shrinkage_quality(sections, metric_names)
-```
 
 ### Stage 5: Export
 **File:** `scripts/pipeline/stage5_export.py`
 
 **Operations:**
-- Build solver_data blocks for each section
-- Structure: courses, instructors, cross_listings, statistics, metadata
+- Build solver_data blocks
 - Validate ranges (metrics 1-5, hours ≥0)
 - Generate coverage statistics
-
-**Solver Data Block Construction:**
-```python
-def build_solver_data_block(section):
-    solver_schedule = section.get('solver_schedule')
-    if not solver_schedule:
-        return None
-
-    return {
-        'integer_schedule': solver_schedule['time_slots'],
-        'day_indices': solver_schedule['day_indices'],
-        'day_bitmask': solver_schedule['day_bitmask'],
-        'metrics_z_scores': {
-            metric_name: metric['z_score']
-            for metric_name, metric in section['metrics'].items()
-            if 'z_score' in metric
-        },
-        'risk_metrics': {
-            'posterior_mean_composite': compute_composite_mean(section),
-            'posterior_std_composite': compute_composite_std(section)
-        }
-    }
-```
 
 ---
 
 ## Mathematical Foundations
 
 ### Integer Time Encoding
-
-**Objective:** Convert human-readable schedules to absolute integer minutes for O(1) conflict detection.
 
 **Day Offset Mapping:**
 ```python
