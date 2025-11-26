@@ -1,8 +1,27 @@
 {
   "missing_data_strategy": "neutral",
   "paths": {
-    "raw_catalog": "data/catalog.json",
+  "raw_catalog": "data/catalog.json",
     "evaluations_dir": "data/course_evaluations",
     "output_processed": "data/processed/processed_courses.json"
+  },
+  "solver_settings": {
+    "enabled": true,
+    "time_resolution": "minutes",
+    "week_start_day": "Monday",
+    "shrinkage_parameters": {
+      "method": "continuous_empirical_bayes",
+      "min_variance_threshold": 0.1
+    },
+    "z_score_parameters": {
+      "enabled": true,
+      "metrics_to_standardize": [
+        "intellectual_stimulation",
+        "overall_course_quality",
+        "overall_instructor_quality",
+        "course_difficulty",
+        "hours_per_week"
+      ]
+    }
   }
 }

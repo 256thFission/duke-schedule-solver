@@ -2,6 +2,7 @@
 from typing import List, Dict
 import re
 from . import utils
+from .time_encoder import encode_schedule
 
 
 def normalize_catalog(catalog: List[Dict]) -> List[Dict]:
@@ -13,61 +14,77 @@ def normalize_catalog(catalog: List[Dict]) -> List[Dict]:
     """
     print("Normalizing catalog...")
     sections = []
-    skipped_independent_study = 0
-    skipped_special_topics = 0
+    
+    # Counters for filtered courses
+    counts = {
+        'independent_study': 0,
+        'special_topics': 0,
+        'away': 0,
+        'constellation': 0,
+        'tutorial': 0,
+        'writing_120': 0,
+        'performing_arts': 0
+    }
 
     for entry in catalog:
-        # Check for Independent Study or Bass Connections
+        # 1. Check for Independent Study / Internships / Capstones in Title
         title = entry.get('descr', '')
-        if 'independent study' in title.lower() or 'bass' in title.lower():
-            skipped_independent_study += 1
+        is_is_title = any(k in title.lower() for k in ['independent study', 'bass', 'internship', 'capstone', 'practicum'])
+        is_reg_fee = 'reg-fee' in entry.get('crse_attr_value', '').lower()
+        
+        if is_is_title or is_reg_fee:
+            counts['independent_study'] += 1
             continue
 
-        # Check for Special Topics
+        # Extract catalog number and numeric part
         catalog_nbr = entry.get('catalog_nbr', '').strip()
-        # Extract numeric part only for comparison (handle 190S, 290A etc)
-        numeric_part = re.match(r'^\d+', catalog_nbr)
-        if numeric_part:
-            number = numeric_part.group(0)
+        numeric_match = re.match(r'^\d+', catalog_nbr)
+        
+        if numeric_match:
+            number = numeric_match.group(0)
             
-            # Special Topics: 190, 290, 390, 490
-            if number in ['190', '290', '390', '490','401']:
-                skipped_special_topics += 1
+            # 2. Special Topics (190, 290, 390, 490, 401)
+            if number in ['190', '290', '390', '490', '401']:
+                counts['special_topics'] += 1
                 continue
                 
-            # Independent Study Sequences (x91-x94) and Honors (495-496)
-            # Independent Study: x91-x92
-            # Research Independent Study: x93-x94
-            # Levels 200-700
+            # 3. Independent Study Sequences (x91-x94) and Honors (495-496)
+            # Independent Study: x91-x92, Research IS: x93-x94 for levels 2-7
             # Honors Thesis: 495-496
-            
-            is_is_sequence = False
             if len(number) == 3:
                 level = int(number[0])
                 suffix = int(number[1:])
-                
-                # Check x91-x94 for levels 2-7
-                if 2 <= level <= 7 and 91 <= suffix <= 94:
-                    is_is_sequence = True
-                # Check 495-496
-                elif number in ['495', '496']:
-                    is_is_sequence = True
+                if (2 <= level <= 7 and 91 <= suffix <= 94) or number in ['495', '496']:
+                    counts['independent_study'] += 1
+                    continue
+
+            # 4. Specific Course Exceptions
+            subject = entry.get('subject', '')
             
-            if is_is_sequence:
-                skipped_independent_study += 1
+            # Writing 120
+            if subject == 'WRITING' and number == '120':
+                counts['writing_120'] += 1
                 continue
                 
-        # Check for CNS suffix
-        if 'CNS' in catalog_nbr:
-            skipped_special_topics += 1
+            # Music Performance (Performing Arts)
+            if subject == 'MUSIC' and number in ['210', '211', '212', '213']:
+                counts['performing_arts'] += 1
+                continue
+
+        # 5. Type Suffixes
+        # Constellation (CNS/CN)
+        if 'CNS' in catalog_nbr or 'CN' in catalog_nbr:
+            counts['constellation'] += 1
             continue
-         # Check for CNS suffix
-        if 'CN' in catalog_nbr:
-            skipped_special_topics += 1
-            continue    
-        # Check for WRITING 120
-        if entry.get('subject') == 'WRITING' and number == '120':
-            skipped_special_topics += 1
+
+        # Away (A)
+        if 'A' in catalog_nbr:
+            counts['away'] += 1
+            continue
+            
+        # Tutorial (T)
+        if 'T' in catalog_nbr:
+            counts['tutorial'] += 1
             continue
 
         # Get first instructor (TODO: handle multiple instructors properly)
@@ -80,6 +97,11 @@ def normalize_catalog(catalog: List[Dict]) -> List[Dict]:
 
         # Normalize course code
         course_id = utils.normalize_course_code(entry['subject'], entry['catalog_nbr'])
+
+        # Parse schedule components
+        days = utils.parse_days(meeting.get('days', ''))
+        start_time = utils.parse_time(meeting.get('start_time', ''))
+        end_time = utils.parse_time(meeting.get('end_time', ''))
 
         section = {
             'course_id': course_id,
@@ -95,10 +117,13 @@ def normalize_catalog(catalog: List[Dict]) -> List[Dict]:
                 'is_unknown': utils.is_unknown_instructor(instructor_name)
             },
             'schedule': {
-                'days': utils.parse_days(meeting.get('days', '')),
-                'start_time': utils.parse_time(meeting.get('start_time', '')),
-                'end_time': utils.parse_time(meeting.get('end_time', '')),
-                'location': meeting.get('facility_descr', '')
+                'days': days,
+                'start_time': start_time,
+                'end_time': end_time,
+                'location': meeting.get('facility_descr', ''),
+                '_raw_days': meeting.get('days', ''),  # Keep raw for diagnostics
+                '_raw_start': meeting.get('start_time', ''),
+                '_raw_end': meeting.get('end_time', '')
             },
             'enrollment': {
                 'capacity': entry.get('class_capacity', 0),
@@ -107,9 +132,14 @@ def normalize_catalog(catalog: List[Dict]) -> List[Dict]:
             }
         }
 
+        # Add solver-ready integer schedule representation
+        # This enables O(1) conflict detection in the BIP solver
+        solver_schedule = encode_schedule(days, start_time, end_time)
+        section['solver_schedule'] = solver_schedule
+
         sections.append(section)
 
-    print(f"Normalized {len(sections)} sections (skipped {skipped_independent_study} independent study, {skipped_special_topics} special topics)")
+    print(f"Normalized {len(sections)} sections. Skipped: {counts['independent_study']} IS, {counts['special_topics']} special topics, {counts['away']} away, {counts['constellation']} constellation, {counts['tutorial']} tutorial, {counts['writing_120']} writing 120, {counts['performing_arts']} performing arts")
     return sections
 
 
