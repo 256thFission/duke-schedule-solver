@@ -211,7 +211,6 @@ def print_summary_statistics(schedules: List[List[Section]]) -> None:
 
     print("\n" + "=" * 71)
     print("SUMMARY STATISTICS")
-    print("=" * 71)
 
     print(f"\nTotal schedules found: {len(schedules)}")
 

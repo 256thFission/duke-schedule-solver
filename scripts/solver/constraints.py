@@ -117,19 +117,28 @@ def add_required_courses_constraints(
             course_to_sections[course_id] = []
         course_to_sections[course_id].append(idx)
 
+    available_courses = set(course_to_sections.keys())
+
     # Add constraint for each required course
-    for course_id in required_course_ids:
-        if course_id not in course_to_sections:
+    for requested_course_id in required_course_ids:
+        # Try flexible matching (handles suffix differences like STA-402 vs STA-402L)
+        matched_course_id = _match_course_id(requested_course_id, available_courses)
+
+        if matched_course_id not in course_to_sections:
             raise ValueError(
-                f"Required course '{course_id}' not found in available sections. "
+                f"Required course '{requested_course_id}' not found in available sections. "
                 f"Available courses: {sorted(course_to_sections.keys())[:10]}..."
             )
 
-        section_indices = course_to_sections[course_id]
+        section_indices = course_to_sections[matched_course_id]
         section_vars = [variables[i] for i in section_indices]
 
         # Exactly one section of this course must be selected
         model.Add(sum(section_vars) == 1)
+
+        # Inform user if we matched a different ID
+        if matched_course_id != requested_course_id:
+            print(f"  Note: Matched '{requested_course_id}' to '{matched_course_id}'")
 
 
 def add_useful_attributes_constraint(
@@ -252,6 +261,55 @@ def add_days_off_constraint(
     model.Add(sum(day_used.values()) <= max_days_used)
 
 
+def _normalize_course_id(course_id: str) -> str:
+    """
+    Normalize course ID by removing common suffixes for matching.
+
+    Examples:
+        'STA-402L' -> 'STA-402'
+        'COMPSCI-201' -> 'COMPSCI-201'
+        'MATH-216S' -> 'MATH-216'
+    """
+    # Remove trailing letter suffixes (L, S, A, B, etc.)
+    import re
+    return re.sub(r'([A-Z]+-\d+)[A-Z]+$', r'\1', course_id)
+
+
+def _match_course_id(requested: str, available_courses: Set[str]) -> str:
+    """
+    Match a requested course ID against available courses.
+
+    Tries:
+    1. Exact match
+    2. Match by normalized ID (ignoring suffix)
+    3. Match where requested is prefix of available
+
+    Args:
+        requested: Course ID requested by user (e.g., 'STA-402')
+        available_courses: Set of available course IDs
+
+    Returns:
+        Matched course ID, or original requested ID if no match
+    """
+    # Try exact match first
+    if requested in available_courses:
+        return requested
+
+    # Try normalized match (remove suffixes)
+    requested_normalized = _normalize_course_id(requested)
+    for course_id in available_courses:
+        if _normalize_course_id(course_id) == requested_normalized:
+            return course_id
+
+    # Try prefix match (requested is prefix of available)
+    # This handles: user types "STA-402" and we have "STA-402L"
+    for course_id in available_courses:
+        if course_id.startswith(requested):
+            return course_id
+
+    return requested  # Return original if no match
+
+
 def validate_feasibility(
     sections: List[Section],
     required_courses: List[str],
@@ -287,7 +345,8 @@ def validate_feasibility(
     # Check if all required courses exist
     available_courses = set(sec.course_id for sec in sections)
     for course_id in required_courses:
-        if course_id not in available_courses:
+        matched_id = _match_course_id(course_id, available_courses)
+        if matched_id not in available_courses:
             return False, f"Required course '{course_id}' not available in filtered sections"
 
     return True, ""

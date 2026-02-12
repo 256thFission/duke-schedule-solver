@@ -5,7 +5,7 @@ Defines Section data model, data loading, and the main ScheduleSolver class.
 """
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Dict, Tuple, Set, Optional
 from pathlib import Path
 
@@ -36,6 +36,18 @@ class Section:
 
     # Attributes (for useful_attributes constraint)
     attributes: List[str]
+
+    # Prerequisites (for prerequisite filtering)
+    prerequisites: List[str] = field(default_factory=list)
+
+    # Attribute flags (for filtering)
+    attribute_flags: Dict[str, bool] = field(default_factory=dict)
+
+    # Enrollment restrictions (for class year filtering)
+    enrollment_restrictions: Dict = field(default_factory=dict)
+
+    # Cross-listings (for prerequisite matching)
+    cross_listings: List[str] = field(default_factory=list)
 
     # Optional: Risk metrics for risk-averse optimization
     risk_metrics: Optional[Dict[str, float]] = None
@@ -94,6 +106,20 @@ class Section:
         # Extract risk metrics (optional)
         risk_metrics = solver_data.get('risk_metrics')
 
+        # Extract prerequisites (from pipeline prerequisite parsing)
+        prereq_data = section_dict.get('prerequisites', {})
+        prerequisites = prereq_data.get('courses', []) if isinstance(prereq_data, dict) else []
+
+        # Extract attribute flags (from pipeline attribute parsing)
+        attributes_dict = section_dict.get('attributes', {})
+        attribute_flags = attributes_dict.get('flags', {}) if isinstance(attributes_dict, dict) else {}
+
+        # Extract enrollment restrictions
+        enrollment_restrictions = section_dict.get('enrollment_restrictions', {})
+
+        # Extract cross-listings
+        cross_listings = section_dict.get('cross_listings', [])
+
         # Get instructor name
         instructor = section_dict.get('instructor', {})
         instructor_name = instructor.get('name', 'Unknown')
@@ -108,6 +134,10 @@ class Section:
             day_bitmask=solver_data['day_bitmask'],
             z_scores=z_scores,
             attributes=attributes,
+            prerequisites=prerequisites,
+            attribute_flags=attribute_flags,
+            enrollment_restrictions=enrollment_restrictions,
+            cross_listings=cross_listings,
             risk_metrics=risk_metrics
         )
 
@@ -198,8 +228,12 @@ def prefilter_sections(
     This dramatically reduces the search space by eliminating sections
     that violate hard constraints before the BIP solver runs.
 
-    Currently filters:
+    Filters applied:
     - Sections with classes before earliest allowed time
+    - Sections that have already been completed (if prerequisite filter enabled)
+    - Sections where prerequisites are not satisfied (if enabled)
+    - Sections matching title keywords (if enabled)
+    - Sections matching catalog number patterns
 
     Args:
         sections: List of all available sections
@@ -208,11 +242,39 @@ def prefilter_sections(
     Returns:
         Filtered list of sections
     """
+    import re
+    
     earliest_mins = time_to_minutes(config.earliest_class_time)
 
+    # Build set of completed courses for fast lookup
+    completed_set: Set[str] = set()
+    prereq_filter_enabled = (
+        config.prerequisite_filter and 
+        config.prerequisite_filter.enabled
+    )
+    if prereq_filter_enabled:
+        completed_set = set(config.prerequisite_filter.completed_courses)
+
+    # Extract filter config
+    filters = config.filters
+    title_kw_enabled = filters and filters.title_keywords and filters.title_keywords.enabled
+    title_keywords = filters.title_keywords.keywords if title_kw_enabled else []
+    
+    # Catalog number patterns
+    catalog_patterns = filters.catalog_number_patterns if filters else None
+    excluded_numbers = set()
+    if catalog_patterns:
+        excluded_numbers.update(catalog_patterns.special_topics_numbers)
+        excluded_numbers.update(catalog_patterns.honors_thesis_numbers)
+
     filtered = []
+    removed_early = 0
+    removed_prereq = 0
+    removed_title_kw = 0
+    removed_catalog = 0
+
     for section in sections:
-        # Check if ANY time slot starts before earliest allowed time
+        # Check 1: Time filter - classes before earliest allowed time
         too_early = False
         for start, end in section.integer_schedule:
             # Get time-of-day (minutes since midnight for that day)
@@ -221,12 +283,57 @@ def prefilter_sections(
                 too_early = True
                 break
 
-        if not too_early:
-            filtered.append(section)
+        if too_early:
+            removed_early += 1
+            continue
 
-    removed = len(sections) - len(filtered)
-    if removed > 0:
-        print(f"  Filtered out {removed} sections (classes before {config.earliest_class_time})")
+        # Check 2: Prerequisite filter (if enabled)
+        if prereq_filter_enabled:
+            # First, exclude courses that have already been completed
+            if section.course_id in completed_set:
+                removed_prereq += 1
+                continue
+
+            # Then check prerequisites (if course has any)
+            if section.prerequisites:
+                # Permissive OR logic: course is allowed if user has completed
+                # AT LEAST ONE of the listed prerequisites.
+                # Courses with no prerequisites are always allowed.
+                has_any_prereq = any(
+                    prereq in completed_set for prereq in section.prerequisites
+                )
+                if not has_any_prereq:
+                    removed_prereq += 1
+                    continue
+
+        # Check 3: Title keywords filter (if enabled)
+        if title_kw_enabled and title_keywords:
+            title_lower = section.title.lower()
+            if any(kw in title_lower for kw in title_keywords):
+                removed_title_kw += 1
+                continue
+
+        # Check 4: Catalog number patterns filter
+        if excluded_numbers:
+            # Extract catalog number from course_id (e.g., "EDUC-75" -> "75")
+            match = re.search(r'-(\d+[A-Z]*)$', section.course_id)
+            if match:
+                catalog_num = match.group(1).rstrip('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
+                if catalog_num in excluded_numbers:
+                    removed_catalog += 1
+                    continue
+
+        filtered.append(section)
+
+    # Report filtering results
+    if removed_early > 0:
+        print(f"  Filtered out {removed_early} sections (classes before {config.earliest_class_time})")
+    if removed_prereq > 0:
+        print(f"  Filtered out {removed_prereq} sections (missing prerequisites)")
+    if removed_title_kw > 0:
+        print(f"  Filtered out {removed_title_kw} sections (title keyword match)")
+    if removed_catalog > 0:
+        print(f"  Filtered out {removed_catalog} sections (catalog number pattern)")
 
     return filtered
 
@@ -367,7 +474,7 @@ class ScheduleSolver:
 
         # 1. No time conflicts
         add_conflict_constraints(self.model, self.variables, self.conflicts)
-        print(f"    ✓ Conflict constraints ({len(self.conflicts)} pairs)")
+        print(f"     Conflict constraints ({len(self.conflicts)} pairs)")
 
         # 2. Exactly N courses
         add_course_load_constraint(
@@ -375,7 +482,7 @@ class ScheduleSolver:
             self.variables,
             self.config.num_courses
         )
-        print(f"    ✓ Course load (exactly {self.config.num_courses} courses)")
+        print(f"    - Course load (exactly {self.config.num_courses} courses)")
 
         # 3. Required courses
         if self.config.required_courses:
@@ -385,7 +492,7 @@ class ScheduleSolver:
                 self.sections,
                 self.config.required_courses
             )
-            print(f"    ✓ Required courses ({len(self.config.required_courses)} courses)")
+            print(f"    - Required courses ({len(self.config.required_courses)} courses)")
 
         # 4. Useful attributes (optional)
         if self.config.useful_attributes and self.config.useful_attributes.enabled:
@@ -397,7 +504,7 @@ class ScheduleSolver:
                 self.config.useful_attributes.min_courses
             )
             attrs_str = ', '.join(self.config.useful_attributes.attributes)
-            print(f"    ✓ Useful attributes (≥{self.config.useful_attributes.min_courses} "
+            print(f"    - Useful attributes (≥{self.config.useful_attributes.min_courses} "
                   f"with {attrs_str})")
 
         # 5. Days off (optional)
@@ -410,7 +517,7 @@ class ScheduleSolver:
                 self.config.days_off.weekdays_only
             )
             days_str = "weekdays" if self.config.days_off.weekdays_only else "all days"
-            print(f"    ✓ Days off (≥{self.config.days_off.min_days_off} free {days_str})")
+            print(f"    - Days off (≥{self.config.days_off.min_days_off} free {days_str})")
 
         # Build objective function
         print("  Building objective function...")
@@ -420,13 +527,17 @@ class ScheduleSolver:
             self.sections,
             self.config.weights
         )
-        print("    ✓ Objective (weighted z-scores)")
+        print("    - Objective (weighted z-scores)")
 
         print("  Model built successfully!")
 
     def solve(self) -> List[List[Section]]:
         """
         Solve the model and return top N schedules.
+
+        Uses iterative solving: finds the best schedule, adds a constraint
+        to exclude it, then solves again — repeating until num_solutions
+        schedules are found or no more feasible solutions exist.
 
         Returns:
             List of schedules (each schedule is a list of Section objects)
@@ -445,66 +556,61 @@ class ScheduleSolver:
 
         import time
 
-        solver = cp_model.CpSolver()
-        solver.parameters.max_time_in_seconds = self.config.max_time_seconds
+        num_wanted = self.config.num_solutions
+        solutions: List[List[Section]] = []
 
-        # Solution collector callback
-        class SolutionCollector(cp_model.CpSolverSolutionCallback):
-            """Callback to collect multiple solutions"""
-
-            def __init__(self, variables, sections, max_solutions):
-                cp_model.CpSolverSolutionCallback.__init__(self)
-                self._variables = variables
-                self._sections = sections
-                self._max_solutions = max_solutions
-                self._solutions = []
-
-            def on_solution_callback(self):
-                # Extract selected sections for this solution
-                selected = [
-                    self._sections[i]
-                    for i in range(len(self._variables))
-                    if self.Value(self._variables[i]) == 1
-                ]
-                self._solutions.append(selected)
-
-                # Stop if we have enough solutions
-                if len(self._solutions) >= self._max_solutions:
-                    self.StopSearch()
-
-            def get_solutions(self):
-                return self._solutions
-
-        collector = SolutionCollector(
-            self.variables,
-            self.sections,
-            self.config.num_solutions
-        )
-
-        print(f"\nSolving (timeout: {self.config.max_time_seconds}s)...")
+        print(f"\nSolving for up to {num_wanted} schedule(s) "
+              f"(timeout: {self.config.max_time_seconds}s)...")
         start_time = time.time()
 
-        status = solver.Solve(self.model, collector)
+        for iteration in range(num_wanted):
+            elapsed_so_far = time.time() - start_time
+            remaining_time = self.config.max_time_seconds - elapsed_so_far
+            if remaining_time <= 1:
+                print(f"  Time budget exhausted after {len(solutions)} solution(s)")
+                break
+
+            solver = cp_model.CpSolver()
+            solver.parameters.max_time_in_seconds = remaining_time
+
+            status = solver.Solve(self.model)
+
+            if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+                if iteration == 0:
+                    if status == cp_model.INFEASIBLE:
+                        print("\n No feasible schedule found.")
+                        print("\nTroubleshooting suggestions:")
+                        print("  - Reduce num_courses")
+                        print("  - Relax days_off constraint")
+                        print("  - Remove conflicting required_courses")
+                        print("  - Adjust earliest_class_time")
+                    else:
+                        print(f"\n Solver did not find a solution")
+                        print(f"Status: {solver.StatusName(status)}")
+                break
+
+            # Extract selected section indices for this solution
+            selected_indices = [
+                i for i in range(len(self.variables))
+                if solver.Value(self.variables[i]) == 1
+            ]
+            selected_sections = [self.sections[i] for i in selected_indices]
+            solutions.append(selected_sections)
+
+            obj_val = solver.ObjectiveValue()
+            print(f"  Solution {iteration + 1}: "
+                  f"objective={obj_val:.2f} "
+                  f"({len(selected_sections)} courses)")
+
+            # Add exclusion constraint: at least one selected variable must
+            # differ in the next solution (forbid this exact combination)
+            self.model.Add(
+                sum(self.variables[i] for i in selected_indices)
+                <= len(selected_indices) - 1
+            )
 
         elapsed = time.time() - start_time
-
-        # Report results
         print(f"\nSolver finished in {elapsed:.2f}s")
-        print(f"Status: {solver.StatusName(status)}")
+        print(f"Found {len(solutions)} schedule(s)")
 
-        if status in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
-            solutions = collector.get_solutions()
-            print(f"Found {len(solutions)} solution(s)")
-            return solutions
-        elif status == cp_model.INFEASIBLE:
-            print("\n❌ No feasible schedule found.")
-            print("\nTroubleshooting suggestions:")
-            print("  - Reduce num_courses")
-            print("  - Relax days_off constraint")
-            print("  - Remove conflicting required_courses")
-            print("  - Adjust earliest_class_time")
-            return []
-        else:
-            print(f"\n⚠️  Solver did not find a solution")
-            print(f"Status: {solver.StatusName(status)}")
-            return []
+        return solutions

@@ -58,7 +58,7 @@ Examples:
     parser.add_argument(
         '--data',
         type=str,
-        default='data/processed/processed_courses.json',
+        default='dataslim/processed/processed_courses.json',
         help='Path to pipeline output (solver-ready data)'
     )
     parser.add_argument(
@@ -103,7 +103,7 @@ Examples:
     try:
         print(f"\nLoading configuration from {args.config}")
         config = SolverConfig.from_json(args.config)
-        print("  ✓ Configuration loaded and validated")
+        print("  - Configuration loaded and validated")
     except Exception as e:
         print(f"❌ Error loading configuration: {e}")
         sys.exit(1)
@@ -158,12 +158,12 @@ Examples:
         if args.output:
             try:
                 export_schedule_json(schedules, args.output, config.weights)
-                print(f"\n✓ Schedules exported to {args.output}")
+                print(f"\n- Schedules exported to {args.output}")
             except Exception as e:
-                print(f"\n⚠️  Warning: Could not export to JSON: {e}")
+                print(f"\n*  Warning: Could not export to JSON: {e}")
 
         print("\n" + "=" * 71)
-        print(f"✓ Successfully generated {len(schedules)} schedule(s)")
+        print(f"- Successfully generated {len(schedules)} schedule(s)")
         print("=" * 71)
 
     else:
