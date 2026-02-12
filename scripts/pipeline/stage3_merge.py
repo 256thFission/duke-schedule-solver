@@ -126,9 +126,18 @@ def merge(normalized_data: Dict) -> List[Dict]:
 
     for section in sections:
         section['metrics'] = {}
+        section['cross_listings'] = []  # Initialize cross-listings list
         course_id = utils.normalize_course_code(section['course_id'])
         original_course_id = section['course_id']
         instructor_name = section['instructor']['name']
+
+        # Extract cross-listings from evaluation data for this course
+        if course_id in cross_listing_index:
+            # Get all unique cross-listed codes for this course
+            all_cross_listings = set()
+            for primary_code, eval_instructor, cross_listed in cross_listing_index[course_id]:
+                all_cross_listings.update(cross_listed)
+            section['cross_listings'] = sorted(all_cross_listings)
 
         # Try course+instructor match first
         if not section['instructor']['is_unknown']:

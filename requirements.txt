@@ -9,3 +9,9 @@ numpy>=1.23.0
 
 # Optional: For better CLI formatting
 colorama>=0.4.6
+
+# Web UI
+gradio>=6.0.0
+
+# PDF parsing
+pdfplumber>=0.10.0

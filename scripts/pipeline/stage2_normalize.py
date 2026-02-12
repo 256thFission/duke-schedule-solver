@@ -119,14 +119,14 @@ def parse_course_flags(raw_attrs: Set[str], program_list: List[str] = None) -> D
 def parse_course_requirements(raw_attrs: Set[str]) -> Dict[str, List[str]]:
     """
     Extract curriculum requirement codes from attributes.
-    
+
     Returns:
         Dict with 'curr2000' (USE/CURR codes) and 'curr2025' (TRIN codes) lists,
         plus 'all' for combined backward-compatible list
     """
     curr2000 = []
     curr2025 = []
-    
+
     for attr in raw_attrs:
         if attr in USE_REQUIREMENTS:
             curr2000.append(USE_REQUIREMENTS[attr])
@@ -134,12 +134,54 @@ def parse_course_requirements(raw_attrs: Set[str]) -> Dict[str, List[str]]:
             curr2000.append(CURR_REQUIREMENTS[attr])
         elif attr in TRIN_REQUIREMENTS:
             curr2025.append(TRIN_REQUIREMENTS[attr])
-    
+
     return {
         'curr2000': sorted(set(curr2000)),
         'curr2025': sorted(set(curr2025)),
         'all': sorted(set(curr2000 + curr2025))
     }
+
+
+def parse_enrollment_restrictions(entry: Dict) -> Dict:
+    """
+    Extract class year and enrollment restrictions from catalog entry.
+
+    Args:
+        entry: Raw catalog entry with reserve_caps, enrl_stat, class_type fields
+
+    Returns:
+        Dict with class_year_restricted, allowed_class_years, is_closed, is_non_enrollment
+    """
+    restrictions = {
+        'class_year_restricted': False,
+        'allowed_class_years': [],
+        'is_closed': entry.get('enrl_stat', 'O') in ['C', 'W'],  # Closed or Waitlist
+        'is_non_enrollment': entry.get('class_type', 'E') == 'N'  # Non-enrollment section
+    }
+
+    # Parse reserve_caps for class year restrictions
+    reserve_caps = entry.get('reserve_caps', [])
+    if reserve_caps:
+        restrictions['class_year_restricted'] = True
+
+        for cap in reserve_caps:
+            descr = cap.get('descr', '').lower()
+
+            # Match common class year descriptions
+            if 'first year' in descr or 'transfer' in descr or 'freshman' in descr:
+                if 'first_year' not in restrictions['allowed_class_years']:
+                    restrictions['allowed_class_years'].append('first_year')
+            if 'sophomore' in descr:
+                if 'sophomore' not in restrictions['allowed_class_years']:
+                    restrictions['allowed_class_years'].append('sophomore')
+            if 'junior' in descr:
+                if 'junior' not in restrictions['allowed_class_years']:
+                    restrictions['allowed_class_years'].append('junior')
+            if 'senior' in descr:
+                if 'senior' not in restrictions['allowed_class_years']:
+                    restrictions['allowed_class_years'].append('senior')
+
+    return restrictions
 
 
 def parse_course_attributes(crse_attr_value: str) -> List[str]:
@@ -158,190 +200,27 @@ def parse_course_attributes(crse_attr_value: str) -> List[str]:
     return reqs['all']
 
 
-def load_filter_config() -> Dict:
-    """Load filter configuration from solver_defaults.json."""
-    config_path = Path(__file__).parent.parent.parent / 'config' / 'solver_defaults.json'
-    try:
-        with open(config_path) as f:
-            config = json.load(f)
-        return config.get('filters', {})
-    except (FileNotFoundError, json.JSONDecodeError):
-        # Return default filters if config not found
-        return {
-            'independent_study': True,
-            'special_topics': True,
-            'tutorial': True,
-            'constellation': True,
-            'service_learning': False,
-            'fee_courses': False,
-            'permission_required': False,
-            'honors': False,
-            'internship': False,
-            'program_specific': {'enabled': False, 'programs': []},
-            'title_keywords': {'enabled': True, 'keywords': ['independent study', 'bass connections', 'internship', 'capstone', 'practicum']},
-            'catalog_number_patterns': {
-                'special_topics_numbers': ['190', '290', '390', '490', '401'],
-                'is_sequence_pattern': True,
-                'honors_thesis_numbers': ['495', '496']
-            }
-        }
-
-
-def should_filter_course(entry: Dict, flags: Dict[str, bool], filter_config: Dict) -> str:
+def normalize_catalog(catalog: List[Dict]) -> List[Dict]:
     """
-    Determine if a course should be filtered out based on attributes and config.
+    Normalize catalog entries and attach metadata.
     
-    Args:
-        entry: Raw catalog entry
-        flags: Parsed attribute flags from parse_course_flags()
-        filter_config: Filter configuration from solver_defaults.json
-    
-    Returns:
-        Filter reason string if should be filtered, empty string if should keep
-    """
-    title = entry.get('descr', '').lower()
-    catalog_nbr = entry.get('catalog_nbr', '').strip()
-    subject = entry.get('subject', '')
-    
-    # Extract numeric part of catalog number
-    numeric_match = re.match(r'^\d+', catalog_nbr)
-    number = numeric_match.group(0) if numeric_match else ''
-    
-    # Get config sub-sections
-    title_config = filter_config.get('title_keywords', {})
-    pattern_config = filter_config.get('catalog_number_patterns', {})
-    program_config = filter_config.get('program_specific', {})
-    
-    # --- ATTRIBUTE-BASED FILTERS (primary) ---
-    
-    # Independent study (attribute OR title keyword OR catalog pattern)
-    if filter_config.get('independent_study', True):
-        if flags.get('is_independent_study'):
-            return 'independent_study_attr'
-        # Fallback: title keywords
-        if title_config.get('enabled', True):
-            keywords = title_config.get('keywords', [])
-            if any(kw in title for kw in keywords):
-                return 'independent_study_title'
-        # Fallback: catalog number pattern (x91-x94, 495-496)
-        if pattern_config.get('is_sequence_pattern', True) and len(number) == 3:
-            try:
-                level = int(number[0])
-                suffix = int(number[1:])
-                if 2 <= level <= 7 and 91 <= suffix <= 94:
-                    return 'independent_study_pattern'
-            except ValueError:
-                pass
-        # Honors thesis numbers
-        if number in pattern_config.get('honors_thesis_numbers', ['495', '496']):
-            return 'honors_thesis'
-    
-    # Special topics (attribute OR catalog pattern)
-    if filter_config.get('special_topics', True):
-        if flags.get('is_special_topics'):
-            return 'special_topics_attr'
-        if number in pattern_config.get('special_topics_numbers', ['190', '290', '390', '490', '401']):
-            return 'special_topics_pattern'
-    
-    # Tutorial (attribute OR catalog suffix)
-    if filter_config.get('tutorial', True):
-        if flags.get('is_tutorial'):
-            return 'tutorial_attr'
-        # Fallback: 'T' suffix but NOT other letters like 'SL', 'DL'
-        if catalog_nbr.endswith('T') and not any(catalog_nbr.endswith(s) for s in ['ST', 'SL', 'DL']):
-            return 'tutorial_suffix'
-    
-    # Constellation (attribute OR catalog pattern)
-    if filter_config.get('constellation', True):
-        if flags.get('is_constellation'):
-            return 'constellation_attr'
-        if 'CNS' in catalog_nbr or catalog_nbr.endswith('CN'):
-            return 'constellation_suffix'
-    
-    # Fee courses (attribute-based)
-    if filter_config.get('fee_courses', False):
-        if flags.get('is_fee_course'):
-            return 'fee_course'
-    
-    # Permission required (attribute-based)
-    if filter_config.get('permission_required', False):
-        if flags.get('is_permission_required'):
-            return 'permission_required'
-    
-    # Honors (attribute-based)
-    if filter_config.get('honors', False):
-        if flags.get('is_honors'):
-            return 'honors'
-    
-    # Internship (attribute-based)
-    if filter_config.get('internship', False):
-        if flags.get('is_internship'):
-            return 'internship'
-    
-    # Service learning (attribute-based)
-    if filter_config.get('service_learning', False):
-        if flags.get('is_service_learning'):
-            return 'service_learning'
-    
-    # Program-specific (attribute-based)
-    if program_config.get('enabled', False):
-        if flags.get('is_program_specific'):
-            return 'program_specific'
-    
-    # --- LEGACY FILTERS (specific courses, kept for backward compat) ---
-    
-    # Writing 120 (first-year writing seminar lottery)
-    if subject == 'WRITING' and number == '120':
-        return 'writing_120'
-    
-    # Music performance courses (audition required)
-    if subject == 'MUSIC' and number in ['210', '211', '212', '213']:
-        return 'performing_arts'
-    
-    # Away courses (suffix 'A' but be careful not to match other things)
-    if re.search(r'\d+A$', catalog_nbr):
-        return 'away'
-    
-    return ''  # Keep the course
-
-
-def normalize_catalog(catalog: List[Dict], filter_config: Dict = None) -> List[Dict]:
-    """
-    Normalize catalog entries.
+    Pipeline preserves all courses - filtering happens in solver stage.
     
     Args:
         catalog: Raw catalog entries
-        filter_config: Optional filter config (loads from file if not provided)
 
     Returns:
-        List of normalized sections
+        List of normalized sections with metadata attached
     """
     print("Normalizing catalog...")
     
-    if filter_config is None:
-        filter_config = load_filter_config()
-    
     sections = []
-    
-    # Counters for filtered courses (grouped by reason)
-    filter_counts = {}
-    
-    # Get program list for attribute parsing
-    program_config = filter_config.get('program_specific', {})
-    program_list = program_config.get('programs', list(ATTR_PROGRAM_PREFIXES))
+    program_list = list(ATTR_PROGRAM_PREFIXES)
 
     for entry in catalog:
-        # Parse attributes into flags
+        # Parse attributes into flags (metadata only, no filtering)
         raw_attrs = parse_raw_attributes(entry.get('crse_attr_value', ''))
         flags = parse_course_flags(raw_attrs, program_list)
-        
-        # Check if course should be filtered
-        filter_reason = should_filter_course(entry, flags, filter_config)
-        if filter_reason:
-            # Group by primary category for cleaner output
-            category = filter_reason.split('_')[0] if '_' in filter_reason else filter_reason
-            filter_counts[category] = filter_counts.get(category, 0) + 1
-            continue
 
         # Get first instructor (TODO: handle multiple instructors properly)
         instructor = entry.get('instructors', [{}])[0] if entry.get('instructors') else {}
@@ -419,6 +298,9 @@ def normalize_catalog(catalog: List[Dict], filter_config: Dict = None) -> List[D
             '_raw_coreq_text': prereq_data['raw_corequisite_text'],
         }
 
+        # Parse enrollment restrictions (class year, closed status)
+        section['enrollment_restrictions'] = parse_enrollment_restrictions(entry)
+
         # Add solver-ready integer schedule representation
         # This enables O(1) conflict detection in the BIP solver
         solver_schedule = encode_schedule(days, start_time, end_time)
@@ -426,10 +308,7 @@ def normalize_catalog(catalog: List[Dict], filter_config: Dict = None) -> List[D
 
         sections.append(section)
 
-    # Build summary string from filter counts
-    skipped_parts = [f"{v} {k}" for k, v in sorted(filter_counts.items(), key=lambda x: -x[1])]
-    skipped_str = ", ".join(skipped_parts) if skipped_parts else "none"
-    print(f"Normalized {len(sections)} sections. Skipped: {skipped_str}")
+    print(f"Normalized {len(sections)} sections (no filtering in pipeline)")
     return sections
 
 
