@@ -7,7 +7,8 @@
     "hours_per_week": -0.20
   },
   "filters": {
-    "_comment": "Toggle which course types to EXCLUDE from results",
+    "_comment": "Attribute-based filtering using Duke's official course tags (REG-*, COMP-*, etc.)",
+
     "independent_study": true,
     "special_topics": true,
     "tutorial": true,
@@ -15,38 +16,44 @@
     "service_learning": false,
     "fee_courses": true,
     "permission_required": false,
-    "honors": true,
     "internship": true,
+
     "program_specific": {
       "_comment": "Exclude courses tied to specific certificate/program cohorts",
       "enabled": false,
       "programs": ["MMS", "ISLAMST", "LATAM", "ENENV", "PJRMS", "RIGHT", "GENSP"]
     },
+
+    "exclude_closed": false,
+    "_comment_exclude_closed": "Filter out courses that are closed or waitlisted",
+
     "title_keywords": {
       "_comment": "Exclude courses with these keywords in title (case-insensitive)",
       "enabled": true,
-      "keywords": ["independent study", "bass connections", "internship", "capstone", "practicum"]
-    },
-    "catalog_number_patterns": {
-      "_comment": "Exclude courses matching these catalog number patterns",
-      "special_topics_numbers": ["190", "290", "390", "490", "401"],
-      "is_sequence_pattern": true,
-      "honors_thesis_numbers": ["495", "496"]
+      "keywords": ["spire", "independent study", "bass connections", "internship", "capstone", "practicum", "honors", "distinction"]
     }
   },
   "constraints": {
     "num_courses": 4,
-    "earliest_class_time": "10:00",
+    "earliest_class_time": "07:00",
     "required_courses": ["STA-402L"],
+
+    "user_class_year": null,
+    "_comment_user_class_year": "Set to 'first_year', 'sophomore', 'junior', or 'senior' to filter class-year-restricted courses. null = show all courses regardless of restrictions.",
+
     "useful_attributes": {
-      "enabled": true ,
-      "attributes": ["SS", "CZ", "NS","W"],
+      "enabled": false,
+      "attributes": [],
       "min_courses": 1
     },
     "days_off": {
-      "enabled": 1,
-      "min_days_off": 1,
+      "min_days_off": 2,
       "weekdays_only": true
+    },
+    "prerequisite_filter": {
+      "_comment": "Filter out courses where you haven't completed at least one prerequisite (now supports cross-listings!)",
+      "enabled": false,
+      "completed_courses": []
     }
   },
   "solver_params": {

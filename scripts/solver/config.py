@@ -74,23 +74,95 @@ class DaysOffConstraint:
     """
     Enforce days with zero scheduled classes.
 
-    Example: min_days_off=2 with weekdays_only=True requires a 3-day weekend.
+    Set min_days_off=0 to disable. Example: min_days_off=2 with
+    weekdays_only=True requires a 3-day weekend.
     """
-    enabled: bool = False
-    min_days_off: int = 2
+    min_days_off: int = 0
     weekdays_only: bool = True
+
+    @property
+    def enabled(self) -> bool:
+        return self.min_days_off > 0
 
     def validate(self) -> None:
         """Validate constraint parameters"""
-        if self.enabled:
+        if self.min_days_off > 0:
             max_days = 5 if self.weekdays_only else 7
-            if self.min_days_off < 1:
-                raise ValueError("min_days_off must be at least 1")
             if self.min_days_off >= max_days:
                 raise ValueError(
                     f"min_days_off ({self.min_days_off}) must be less than "
                     f"total days ({max_days})"
                 )
+
+
+@dataclass
+class PrerequisiteFilter:
+    """
+    Filter based on completed courses.
+
+    When enabled:
+    1. Excludes courses that have already been completed (prevents retaking)
+    2. Excludes courses where prerequisites have not been satisfied
+       (permissive OR logic: must have completed at least one listed prerequisite)
+    """
+    enabled: bool = False
+    completed_courses: List[str] = field(default_factory=list)
+
+    def validate(self) -> None:
+        """Validate filter parameters"""
+        if self.enabled and not self.completed_courses:
+            print("  ⚠️  Warning: prerequisite filter enabled but no completed_courses provided")
+
+
+@dataclass
+class TitleKeywordsFilter:
+    """
+    Filter out courses with specific keywords in their title.
+    """
+    enabled: bool = False
+    keywords: List[str] = field(default_factory=list)
+
+
+@dataclass
+class CatalogNumberPatternsFilter:
+    """
+    Filter out courses matching specific catalog number patterns.
+    """
+    special_topics_numbers: List[str] = field(default_factory=list)
+    honors_thesis_numbers: List[str] = field(default_factory=list)
+    is_sequence_pattern: bool = True
+
+
+@dataclass
+class ProgramSpecificFilter:
+    """
+    Filter out courses restricted to specific programs/cohorts.
+    """
+    enabled: bool = False
+    programs: List[str] = field(default_factory=list)
+
+
+@dataclass
+class CourseFilters:
+    """
+    Collection of course type filters.
+
+    Each boolean filter (when True) EXCLUDES courses of that type.
+    Uses Duke's official attribute tags (COMP-*, REG-*, etc.) for filtering.
+    """
+    independent_study: bool = False
+    special_topics: bool = False
+    tutorial: bool = False
+    constellation: bool = False
+    service_learning: bool = False
+    fee_courses: bool = False
+    permission_required: bool = False
+    internship: bool = False
+    exclude_closed: bool = False  # Filter out closed/waitlisted courses
+    program_specific: ProgramSpecificFilter = field(default_factory=ProgramSpecificFilter)
+    title_keywords: TitleKeywordsFilter = field(default_factory=TitleKeywordsFilter)
+    # Note: catalog_number_patterns kept for backward compatibility but deprecated (use attributes instead)
+    catalog_number_patterns: Optional[CatalogNumberPatternsFilter] = None
 
 
 @dataclass
@@ -105,8 +177,15 @@ class SolverConfig:
     num_courses: int = 4
     earliest_class_time: str = "08:00"  # HH:MM format
     required_courses: List[str] = field(default_factory=list)
+    user_class_year: Optional[str] = None  # 'first_year', 'sophomore', 'junior', 'senior', or None
     useful_attributes: Optional[UsefulAttributesConstraint] = None
     days_off: Optional[DaysOffConstraint] = None
+
+    # Prerequisite filtering
+    prerequisite_filter: Optional[PrerequisiteFilter] = None
+
+    # Course type filters
+    filters: Optional[CourseFilters] = None
 
     # Solver parameters
     max_time_seconds: int = 30
@@ -118,6 +197,10 @@ class SolverConfig:
             self.useful_attributes = UsefulAttributesConstraint()
         if self.days_off is None:
             self.days_off = DaysOffConstraint()
+        if self.prerequisite_filter is None:
+            self.prerequisite_filter = PrerequisiteFilter()
+        if self.filters is None:
+            self.filters = CourseFilters()
 
     def validate(self) -> None:
         """Validate all configuration parameters"""
@@ -145,6 +228,8 @@ class SolverConfig:
             self.useful_attributes.validate()
         if self.days_off:
             self.days_off.validate()
+        if self.prerequisite_filter:
+            self.prerequisite_filter.validate()
 
     @staticmethod
     def _is_valid_time_format(time_str: str) -> bool:
@@ -204,13 +289,62 @@ class SolverConfig:
         # Parse days off constraint
         days_off_data = constraints.get('days_off', {})
         days_off = DaysOffConstraint(
-            enabled=days_off_data.get('enabled', False),
-            min_days_off=days_off_data.get('min_days_off', 2),
+            min_days_off=days_off_data.get('min_days_off', 0),
             weekdays_only=days_off_data.get('weekdays_only', True)
-        ) if days_off_data.get('enabled') else DaysOffConstraint()
+        )
+
+        # Parse prerequisite filter
+        prereq_data = constraints.get('prerequisite_filter', {})
+        prereq_filter = PrerequisiteFilter(
+            enabled=prereq_data.get('enabled', False),
+            completed_courses=prereq_data.get('completed_courses', [])
+        ) if prereq_data.get('enabled') else PrerequisiteFilter()
+
+        # Parse course type filters
+        filters_data = data.get('filters', {})
+        title_kw_data = filters_data.get('title_keywords', {})
+        catalog_patterns_data = filters_data.get('catalog_number_patterns', {})
+        program_specific_data = filters_data.get('program_specific', {})
+
+        # Parse catalog_number_patterns if present (deprecated but kept for backward compatibility)
+        catalog_patterns = None
+        if catalog_patterns_data:
+            catalog_patterns = CatalogNumberPatternsFilter(
+                special_topics_numbers=catalog_patterns_data.get('special_topics_numbers', []),
+                honors_thesis_numbers=catalog_patterns_data.get('honors_thesis_numbers', []),
+                is_sequence_pattern=catalog_patterns_data.get('is_sequence_pattern', True)
+            )
+
+        course_filters = CourseFilters(
+            independent_study=filters_data.get('independent_study', False),
+            special_topics=filters_data.get('special_topics', False),
+            tutorial=filters_data.get('tutorial', False),
+            constellation=filters_data.get('constellation', False),
+            service_learning=filters_data.get('service_learning', False),
+            fee_courses=filters_data.get('fee_courses', False),
+            permission_required=filters_data.get('permission_required', False),
+            internship=filters_data.get('internship', False),
+            exclude_closed=filters_data.get('exclude_closed', False),
+            program_specific=ProgramSpecificFilter(
+                enabled=program_specific_data.get('enabled', False),
+                programs=program_specific_data.get('programs', [])
+            ),
+            title_keywords=TitleKeywordsFilter(
+                enabled=title_kw_data.get('enabled', False),
+                keywords=[kw.lower() for kw in title_kw_data.get('keywords', [])]
+            ),
+            catalog_number_patterns=catalog_patterns
+        )
 
         # Parse solver parameters
         solver_params = data.get('solver_params', {})
+
+        # Parse user_class_year (optional)
+        user_class_year = constraints.get('user_class_year', None)
+        if user_class_year and user_class_year not in [None, 'first_year', 'sophomore', 'junior', 'senior']:
+            raise ValueError(
+                f"user_class_year must be one of: None, 'first_year', 'sophomore', 'junior', 'senior'. Got: {user_class_year}"
+            )
 
         # Build config
         config = cls(
@@ -218,8 +352,11 @@ class SolverConfig:
             num_courses=constraints.get('num_courses', 4),
             earliest_class_time=constraints.get('earliest_class_time', '08:00'),
             required_courses=constraints.get('required_courses', []),
+            user_class_year=user_class_year,
             useful_attributes=useful_attrs,
             days_off=days_off,
+            prerequisite_filter=prereq_filter,
+            filters=course_filters,
             max_time_seconds=solver_params.get('max_time_seconds', 30),
             num_solutions=solver_params.get('num_solutions', 5)
         )
@@ -248,9 +385,12 @@ class SolverConfig:
                     'min_courses': self.useful_attributes.min_courses
                 },
                 'days_off': {
-                    'enabled': self.days_off.enabled,
                     'min_days_off': self.days_off.min_days_off,
                     'weekdays_only': self.days_off.weekdays_only
+                },
+                'prerequisite_filter': {
+                    'enabled': self.prerequisite_filter.enabled,
+                    'completed_courses': self.prerequisite_filter.completed_courses
                 }
             },
             'solver_params': {
