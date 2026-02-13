@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Duke Schedule Solver</title>
+
+    <!-- DoodleCSS -->
+    <link rel="stylesheet" href="/doodle/doodle.css" />
+
+    <!-- Google Font for DoodleCSS -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Short+Stack&display=swap" rel="stylesheet">
+
+    <style>
+      body {
+        font-family: 'Short Stack', cursive;
+        margin: 0;
+        padding: 0;
+      }
+
+      /* Reset DoodleCSS inside calendar / .no-doodle containers */
+      .no-doodle,
+      .no-doodle *,
+      .no-doodle *::before,
+      .no-doodle *::after {
+        border-image: none !important;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+      }
+      .no-doodle button,
+      .no-doodle input,
+      .no-doodle select,
+      .no-doodle textarea,
+      .no-doodle fieldset,
+      .no-doodle table,
+      .no-doodle img {
+        border-image: none !important;
+        max-width: none !important;
+      }
+      .no-doodle table {
+        display: table !important;
+        overflow: visible !important;
+      }
+    </style>
+  </head>
+  <body class="doodle">
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
