@@ -252,6 +252,210 @@ def analyze_transcript_requirements(
     return requirements
 
 
+# =========================================================================
+# Curriculum 2025 (Fall 2025+ matriculants)
+# =========================================================================
+
+LIBERAL_ARTS_DISTRIBUTION = {
+    'CE': 'Creating & Engaging with Art',
+    'HI': 'Humanistic Inquiry',
+    'IJ': 'Interpreting Institutions, Justice & Power',
+    'NW': 'Investigating the Natural World',
+    'QC': 'Quantitative & Computational Reasoning',
+    'SB': 'Social & Behavioral Analysis',
+}
+
+TRIN_OTHER_REQUIREMENTS = {
+    'WR': 'First-Year Writing (WRITING 120)',
+    'LG': 'World Languages',
+}
+
+REQUIREMENT_COUNTS_2025 = {
+    # Liberal Arts Distribution (need 2 each)
+    'CE': 2,
+    'HI': 2,
+    'IJ': 2,
+    'NW': 2,
+    'QC': 2,
+    'SB': 2,
+    # Other
+    'WR': 1,  # WRITING 120
+    'LG': 3,  # 3 courses in sequence or 2 at 300-level
+}
+
+
+@dataclass
+class GraduationRequirements2025:
+    """
+    Tracks Trinity Curriculum 2025 graduation requirements.
+
+    For students matriculating Fall 2025 or later.
+    Uses TRIN- attribute codes from the catalog.
+    """
+    liberal_arts_distribution: Dict[str, RequirementProgress] = field(default_factory=dict)
+    other_requirements: Dict[str, RequirementProgress] = field(default_factory=dict)
+
+    def __post_init__(self):
+        """Initialize all requirements if not provided"""
+        if not self.liberal_arts_distribution:
+            self.liberal_arts_distribution = {
+                code: RequirementProgress(code, name, REQUIREMENT_COUNTS_2025[code])
+                for code, name in LIBERAL_ARTS_DISTRIBUTION.items()
+            }
+
+        if not self.other_requirements:
+            self.other_requirements = {
+                code: RequirementProgress(code, name, REQUIREMENT_COUNTS_2025[code])
+                for code, name in TRIN_OTHER_REQUIREMENTS.items()
+            }
+
+    def mark_course_complete(self, course_id: str, attributes: List[str]) -> None:
+        """
+        Mark a course as completed and update requirement progress.
+
+        Per the new curriculum, a course can carry multiple TRIN- attributes
+        but functionally counts for only one distribution area per student.
+        """
+        dist_used = False
+
+        for attr in attributes:
+            if attr in LIBERAL_ARTS_DISTRIBUTION and not dist_used:
+                req = self.liberal_arts_distribution[attr]
+                if course_id not in req.courses and req.completed < req.required:
+                    req.completed += 1
+                    req.courses.append(course_id)
+                    dist_used = True
+            elif attr in TRIN_OTHER_REQUIREMENTS:
+                req = self.other_requirements[attr]
+                if course_id not in req.courses and req.completed < req.required:
+                    req.completed += 1
+                    req.courses.append(course_id)
+
+    def get_all_requirements(self) -> List[RequirementProgress]:
+        """Get all requirements sorted by category"""
+        return (
+            list(self.liberal_arts_distribution.values()) +
+            list(self.other_requirements.values())
+        )
+
+    def get_incomplete_requirements(self) -> List[RequirementProgress]:
+        """Get only requirements that are not yet complete"""
+        return [req for req in self.get_all_requirements() if not req.is_complete]
+
+    def get_needed_attributes(self) -> List[str]:
+        """
+        Get list of attribute codes that still need courses.
+        Useful for configuring the solver's useful_attributes constraint.
+        """
+        needed = []
+        for req in self.get_incomplete_requirements():
+            if req.remaining > 0:
+                needed.append(req.code)
+        return needed
+
+    def to_dict(self) -> Dict:
+        """Serialize to dictionary for JSON storage/UI display"""
+        return {
+            'liberal_arts_distribution': {
+                code: {
+                    'code': req.code,
+                    'name': req.name,
+                    'required': req.required,
+                    'completed': req.completed,
+                    'remaining': req.remaining,
+                    'progress_percent': req.progress_percent,
+                    'courses': req.courses,
+                }
+                for code, req in self.liberal_arts_distribution.items()
+            },
+            'other_requirements': {
+                code: {
+                    'code': req.code,
+                    'name': req.name,
+                    'required': req.required,
+                    'completed': req.completed,
+                    'remaining': req.remaining,
+                    'progress_percent': req.progress_percent,
+                    'courses': req.courses,
+                }
+                for code, req in self.other_requirements.items()
+            },
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'GraduationRequirements2025':
+        """Deserialize from dictionary"""
+        dist = {
+            code: RequirementProgress(
+                code=req_data['code'],
+                name=req_data['name'],
+                required=req_data['required'],
+                completed=req_data['completed'],
+                courses=req_data['courses'],
+            )
+            for code, req_data in data.get('liberal_arts_distribution', {}).items()
+        }
+
+        other = {
+            code: RequirementProgress(
+                code=req_data['code'],
+                name=req_data['name'],
+                required=req_data['required'],
+                completed=req_data['completed'],
+                courses=req_data['courses'],
+            )
+            for code, req_data in data.get('other_requirements', {}).items()
+        }
+
+        return cls(liberal_arts_distribution=dist, other_requirements=other)
+
+
+def analyze_transcript_requirements_2025(
+    transcript_courses: List[str],
+    pipeline_data_path: str
+) -> GraduationRequirements2025:
+    """
+    Analyze which 2025 curriculum requirements have been fulfilled.
+
+    Uses curr2025 attributes (TRIN- codes mapped to short codes like CE, HI, etc.)
+
+    Args:
+        transcript_courses: List of course IDs from transcript
+        pipeline_data_path: Path to processed_courses.json
+
+    Returns:
+        GraduationRequirements2025 object with progress filled in
+    """
+    with open(pipeline_data_path) as f:
+        data = json.load(f)
+
+    # Build mapping of course_id -> curr2025 attributes
+    course_attributes_map: Dict[str, Set[str]] = {}
+
+    for course in data.get('courses', []):
+        for section in course.get('sections', []):
+            course_id = section.get('course_id')
+            if not course_id:
+                continue
+
+            attributes_data = section.get('attributes', {})
+            if isinstance(attributes_data, dict):
+                curr2025_attrs = attributes_data.get('curr2025', [])
+                if curr2025_attrs:
+                    if course_id not in course_attributes_map:
+                        course_attributes_map[course_id] = set()
+                    course_attributes_map[course_id].update(curr2025_attrs)
+
+    requirements = GraduationRequirements2025()
+
+    for course_id in transcript_courses:
+        if course_id in course_attributes_map:
+            attributes = list(course_attributes_map[course_id])
+            requirements.mark_course_complete(course_id, attributes)
+
+    return requirements
+
+
 def get_requirement_summary_html(requirements: GraduationRequirements) -> str:
     """
     Generate an HTML summary of requirement progress.

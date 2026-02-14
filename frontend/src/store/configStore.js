@@ -12,6 +12,7 @@ const useConfigStore = create((set) => ({
   // The Single Config Object (JSON Source of Truth)
   // -------------------------------------------------------------------------
   config: {
+    matriculation_year: null,  // 'pre2025' or '2025plus'
     user_class_year: null,
     completed_courses: [],
     required_courses: [],
@@ -37,7 +38,7 @@ const useConfigStore = create((set) => ({
   // Wizard Navigation State
   // -------------------------------------------------------------------------
   currentStep: 1,
-  totalSteps: 6,
+  totalSteps: 7,
   maxStepVisited: 1,
 
   // -------------------------------------------------------------------------
@@ -61,6 +62,11 @@ const useConfigStore = create((set) => ({
   // -------------------------------------------------------------------------
   // Actions: Config Updates
   // -------------------------------------------------------------------------
+
+  setMatriculationYear: (year) =>
+    set((state) => ({
+      config: { ...state.config, matriculation_year: year },
+    })),
 
   updateConfig: (updates) =>
     set((state) => ({
@@ -213,8 +219,8 @@ const useConfigStore = create((set) => ({
     set({
       schedules,
       currentScheduleIndex: 0,
-      currentStep: 6,
-      maxStepVisited: 6,
+      currentStep: 7,
+      maxStepVisited: 7,
     }),
 
   nextSchedule: () =>
@@ -244,6 +250,7 @@ const useConfigStore = create((set) => ({
   reset: () =>
     set({
       config: {
+        matriculation_year: null,
         user_class_year: null,
         completed_courses: [],
         required_courses: [],

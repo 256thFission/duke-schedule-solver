@@ -6,6 +6,7 @@
  */
 
 import useConfigStore from './store/configStore';
+import Step0Year from './components/steps/Step0Year';
 import Step1Upload from './components/steps/Step1Upload';
 import Step2MustTakes from './components/steps/Step2MustTakes';
 import Step3Requirements from './components/steps/Step3Requirements';
@@ -17,12 +18,13 @@ function App() {
   const { currentStep, totalSteps, maxStepVisited, goToStep, config, error } = useConfigStore();
 
   const steps = [
-    { number: 1, title: 'Upload', component: Step1Upload },
-    { number: 2, title: 'Courses', component: Step2MustTakes },
-    { number: 3, title: 'Gen Eds', component: Step3Requirements },
-    { number: 4, title: 'Preferences', component: Step4Preferences },
-    { number: 5, title: 'Logistics', component: Step5Logistics },
-    { number: 6, title: 'Results', component: Step6Results },
+    { number: 1, title: 'Year', component: Step0Year },
+    { number: 2, title: 'Upload', component: Step1Upload },
+    { number: 3, title: 'Courses', component: Step2MustTakes },
+    { number: 4, title: 'Gen Eds', component: Step3Requirements },
+    { number: 5, title: 'Preferences', component: Step4Preferences },
+    { number: 6, title: 'Logistics', component: Step5Logistics },
+    { number: 7, title: 'Results', component: Step6Results },
   ];
 
   const CurrentStepComponent = steps[currentStep - 1].component;
@@ -35,7 +37,7 @@ function App() {
           Duke Schedule Solver
         </h1>
         <p style={{ fontSize: '16px', color: '#6b7280' }}>
-          Find your perfect course schedule in 6 easy steps
+          Find your perfect course schedule in 7 easy steps
         </p>
       </header>
 
@@ -135,7 +137,7 @@ function App() {
       </div>
 
       {/* Global Error Display */}
-      {error && currentStep !== 6 && (
+      {error && currentStep !== 7 && (
         <div
           style={{
             maxWidth: '700px',

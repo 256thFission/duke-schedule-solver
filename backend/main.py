@@ -26,7 +26,10 @@ from scripts.solver.config import (
     UsefulAttributesConstraint, PrerequisiteFilter
 )
 from scripts.solver.objectives import score_schedule, compute_metric_averages
-from scripts.solver.graduation_requirements import analyze_transcript_requirements
+from scripts.solver.graduation_requirements import (
+    analyze_transcript_requirements,
+    analyze_transcript_requirements_2025
+)
 
 from schemas import (
     SolverRequest, TranscriptResponse, CourseSearchResponse,
@@ -72,7 +75,10 @@ DATA_PATH = str(PROJECT_ROOT / "dataslim" / "processed" / "processed_courses.jso
 # ---------------------------------------------------------------------------
 
 @app.post("/parse-transcript", response_model=TranscriptResponse)
-async def parse_transcript(file: UploadFile = File(...)) -> TranscriptResponse:
+async def parse_transcript(
+    file: UploadFile = File(...),
+    matriculation_year: str = Query(default="pre2025", description="'pre2025' or '2025plus'")
+) -> TranscriptResponse:
     """
     Extract courses from an uploaded Duke transcript PDF.
 
@@ -137,11 +143,17 @@ async def parse_transcript(file: UploadFile = File(...)) -> TranscriptResponse:
         # Infer class year from course count
         class_year = infer_class_year(len(matched))
 
-        # Analyze graduation requirements
+        # Analyze graduation requirements (routed by curriculum)
         grad_reqs_data = None
         if matched:
             try:
-                grad_reqs = analyze_transcript_requirements(matched, DATA_PATH)
+                is_2025 = matriculation_year == '2025plus'
+
+                if is_2025:
+                    grad_reqs = analyze_transcript_requirements_2025(matched, DATA_PATH)
+                else:
+                    grad_reqs = analyze_transcript_requirements(matched, DATA_PATH)
+
                 needed_attrs = grad_reqs.get_needed_attributes()
 
                 # Calculate overall progress
@@ -150,39 +162,36 @@ async def parse_transcript(file: UploadFile = File(...)) -> TranscriptResponse:
                 total_required = sum(req.required for req in all_reqs)
                 overall_progress = (total_completed / total_required * 100) if total_required > 0 else 0
 
-                # Convert to Pydantic models
-                areas_dict = {}
-                for code, req in grad_reqs.areas_of_knowledge.items():
-                    areas_dict[code] = RequirementProgressData(
-                        code=req.code,
-                        name=req.name,
-                        required=req.required,
-                        completed=req.completed,
-                        remaining=req.remaining,
-                        is_complete=req.is_complete,
-                        progress_percent=req.progress_percent,
-                        courses=req.courses
-                    )
+                # Helper to convert RequirementProgress -> Pydantic model
+                def _to_pydantic(req_dict):
+                    return {
+                        code: RequirementProgressData(
+                            code=req.code,
+                            name=req.name,
+                            required=req.required,
+                            completed=req.completed,
+                            remaining=req.remaining,
+                            is_complete=req.is_complete,
+                            progress_percent=req.progress_percent,
+                            courses=req.courses
+                        )
+                        for code, req in req_dict.items()
+                    }
 
-                modes_dict = {}
-                for code, req in grad_reqs.modes_of_inquiry.items():
-                    modes_dict[code] = RequirementProgressData(
-                        code=req.code,
-                        name=req.name,
-                        required=req.required,
-                        completed=req.completed,
-                        remaining=req.remaining,
-                        is_complete=req.is_complete,
-                        progress_percent=req.progress_percent,
-                        courses=req.courses
+                if is_2025:
+                    grad_reqs_data = GraduationRequirementsData(
+                        liberal_arts_distribution=_to_pydantic(grad_reqs.liberal_arts_distribution),
+                        other_requirements=_to_pydantic(grad_reqs.other_requirements),
+                        needed_attributes=needed_attrs,
+                        overall_progress_percent=overall_progress
                     )
-
-                grad_reqs_data = GraduationRequirementsData(
-                    areas_of_knowledge=areas_dict,
-                    modes_of_inquiry=modes_dict,
-                    needed_attributes=needed_attrs,
-                    overall_progress_percent=overall_progress
-                )
+                else:
+                    grad_reqs_data = GraduationRequirementsData(
+                        areas_of_knowledge=_to_pydantic(grad_reqs.areas_of_knowledge),
+                        modes_of_inquiry=_to_pydantic(grad_reqs.modes_of_inquiry),
+                        needed_attributes=needed_attrs,
+                        overall_progress_percent=overall_progress
+                    )
             except Exception as e:
                 print(f"Warning: Could not analyze graduation requirements: {e}")
 
@@ -336,6 +345,14 @@ async def solve_schedule(config: SolverRequest) -> ScheduleResponse:
         filtered_sections = prefilter_sections(all_sections, solver_config)
         print(f"After filtering: {len(filtered_sections)} sections")
 
+        # Step 7b: Remove banned courses (reroll feature)
+        if config.banned_courses:
+            banned_set = set(config.banned_courses)
+            before = len(filtered_sections)
+            filtered_sections = [s for s in filtered_sections if s.course_id not in banned_set]
+            removed = before - len(filtered_sections)
+            print(f"  Filtered out {removed} sections (banned courses: {config.banned_courses})")
+
         if len(filtered_sections) == 0:
             return ScheduleResponse(
                 success=True,
@@ -390,7 +407,9 @@ async def solve_schedule(config: SolverRequest) -> ScheduleResponse:
                     day_indices=section.day_indices,
                     integer_schedule=section.integer_schedule,
                     z_scores=section.z_scores,
-                    attributes=section.attributes
+                    attributes=section.attributes,
+                    component=section.component,
+                    linked_sections=section.linked_sections
                 ))
 
             response_schedules.append(ScheduleData(

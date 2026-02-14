@@ -98,7 +98,7 @@ export default function Step5Logistics() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <input
             type="range"
-            min="1"
+            min="0"
             max="4"
             value={config.constraints.min_days_off}
             onChange={(e) => updateConstraints({ min_days_off: parseInt(e.target.value, 10) })}

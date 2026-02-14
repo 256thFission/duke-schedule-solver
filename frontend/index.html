@@ -21,13 +21,14 @@
         padding: 0;
       }
 
-      /* Reset DoodleCSS inside calendar / .no-doodle containers */
+      /* Reset DoodleCSS inside .no-doodle containers */
       .no-doodle,
       .no-doodle *,
       .no-doodle *::before,
       .no-doodle *::after {
         border-image: none !important;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+        border-image-source: none !important;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
       }
       .no-doodle button,
       .no-doodle input,
@@ -37,11 +38,86 @@
       .no-doodle table,
       .no-doodle img {
         border-image: none !important;
+        border-image-source: none !important;
         max-width: none !important;
       }
       .no-doodle table {
         display: table !important;
         overflow: visible !important;
+        border-collapse: collapse !important;
+      }
+      .no-doodle table thead {
+        border-bottom: none !important;
+      }
+      .no-doodle fieldset {
+        border: 1px solid #e5e7eb !important;
+        border-radius: 10px !important;
+        padding: 16px !important;
+      }
+      .no-doodle fieldset legend {
+        font-weight: 700;
+        font-size: 15px;
+        padding: 0 8px;
+      }
+
+      /* Calendar event text override */
+      .no-doodle .rbc-event {
+        border: none !important;
+        border-image: none !important;
+      }
+      .no-doodle .rbc-event-content {
+        font-size: 11px !important;
+        line-height: 1.3 !important;
+        overflow: hidden !important;
+        white-space: nowrap !important;
+        text-overflow: ellipsis !important;
+      }
+      .no-doodle .rbc-header {
+        font-size: 13px !important;
+        font-weight: 600 !important;
+        padding: 8px 4px !important;
+        border-bottom: 2px solid #e5e7eb !important;
+        border-image: none !important;
+        border-image-source: none !important;
+      }
+      .no-doodle .rbc-header *,
+      .no-doodle .rbc-header a,
+      .no-doodle .rbc-header button,
+      .no-doodle .rbc-header span {
+        border: none !important;
+        border-image: none !important;
+        border-image-source: none !important;
+        background: none !important;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+      }
+      .no-doodle .rbc-row {
+        border-image: none !important;
+        border-image-source: none !important;
+      }
+      .no-doodle .rbc-time-header-gutter,
+      .no-doodle .rbc-time-gutter .rbc-timeslot-group {
+        font-size: 11px !important;
+        color: #6b7280 !important;
+      }
+      .no-doodle .rbc-time-view {
+        border: 1px solid #e5e7eb !important;
+        border-radius: 8px !important;
+        overflow: hidden !important;
+      }
+      .no-doodle .rbc-time-content {
+        border-top: 1px solid #e5e7eb !important;
+      }
+      .no-doodle .rbc-day-slot .rbc-time-slot {
+        border-top: 1px solid #f3f4f6 !important;
+      }
+      .no-doodle .rbc-timeslot-group {
+        border-bottom: 1px solid #e5e7eb !important;
+      }
+      .no-doodle .rbc-time-content > * + * > * {
+        border-left: 1px solid #e5e7eb !important;
+      }
+      .no-doodle .rbc-today {
+        background-color: transparent !important;
       }
     </style>
   </head>
