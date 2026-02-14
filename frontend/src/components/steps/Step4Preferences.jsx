@@ -36,10 +36,10 @@ export default function Step4Preferences() {
           }}
         >
           {[
-            { key: 'chill', label: 'Chill' },
+            { key: 'chill', label: 'Light-work' },
             { key: 'balanced', label: 'Balanced' },
-            { key: 'best_profs', label: 'Best Profs' },
-            { key: 'grindset', label: 'Grindset' },
+            { key: 'best_profs', label: 'BestProfs' },
+            { key: 'grindset', label: 'Interesting Topics' },
           ].map(({ key, label }) => (
             <button
               key={key}

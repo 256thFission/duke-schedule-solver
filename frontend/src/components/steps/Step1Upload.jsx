@@ -34,6 +34,24 @@ const REQUIREMENT_NAMES_2025 = {
   LG: 'World Languages',
 };
 
+const REQUIREMENT_NAMES_PRATT_PRE2025 = {
+  ALP: 'Arts, Literature & Performance',
+  CZ: 'Civilizations',
+  SS: 'Social Sciences',
+  FL: 'Foreign Language',
+};
+
+const REQUIREMENT_NAMES_PRATT_2025 = {
+  CE: 'Creating & Engaging with Art',
+  HI: 'Humanistic Inquiry',
+  IJ: 'Interpreting Institutions, Justice & Power',
+  SB: 'Social & Behavioral Analysis',
+  LG: 'World Languages',
+};
+
+const PRATT_CODES_PRE2025 = new Set(['ALP', 'CZ', 'SS', 'FL']);
+const PRATT_CODES_2025 = new Set(['CE', 'HI', 'IJ', 'SB', 'LG']);
+
 function ProgressBar({ percent, color = '#3b82f6', bg = '#e5e7eb', height = 8 }) {
   return (
     <div style={{ height, backgroundColor: bg, borderRadius: 4, overflow: 'hidden' }}>
@@ -203,7 +221,12 @@ export default function Step1Upload() {
 
   // Build requirements sections from graduation_requirements
   const is2025 = config.matriculation_year === '2025plus';
-  const reqNameMap = is2025 ? REQUIREMENT_NAMES_2025 : REQUIREMENT_NAMES_PRE2025;
+  const isPratt = config.is_pratt === true;
+  const prattCodes = is2025 ? PRATT_CODES_2025 : PRATT_CODES_PRE2025;
+
+  const reqNameMap = isPratt
+    ? (is2025 ? REQUIREMENT_NAMES_PRATT_2025 : REQUIREMENT_NAMES_PRATT_PRE2025)
+    : (is2025 ? REQUIREMENT_NAMES_2025 : REQUIREMENT_NAMES_PRE2025);
 
   const gradReqs = uploadResult?.graduation_requirements;
   let allReqsList = [];
@@ -219,6 +242,20 @@ export default function Step1Upload() {
         ...Object.values(gradReqs.modes_of_inquiry || {}),
       ];
     }
+    if (isPratt) {
+      allReqsList = allReqsList
+        .filter((r) => prattCodes.has(r.code))
+        .map((r) => {
+          const completed = Math.min(r.completed, 1);
+          return {
+            ...r,
+            required: 1,
+            completed,
+            is_complete: r.completed >= 1,
+            progress_percent: r.completed >= 1 ? 100 : 0,
+          };
+        });
+    }
   }
 
   const completedReqs = allReqsList.filter((r) => r.is_complete);
@@ -227,10 +264,10 @@ export default function Step1Upload() {
   return (
     <div style={{ maxWidth: 660, margin: '0 auto' }}>
       <h2>Upload Your Transcript</h2>
-      <p>Upload your Duke transcript PDF to automatically import your completed courses.</p>
+      <p>Upload your  (unofficial) Duke transcript PDF to magically import your completed courses.</p>
 
       <fieldset>
-        <legend>Transcript Upload</legend>
+        <legend>Upload</legend>
 
         {/* ── Upload Zone ── */}
         {!uploadResult && (
@@ -249,10 +286,10 @@ export default function Step1Upload() {
                 marginBottom: 16,
               }}
             >
-              <p style={{ fontSize: 18, marginBottom: 8 }}>
+              <p style={{ fontSize: 18, marginBottom: 8, color: '#9ca3af'}}>
                 {isDragging ? 'Drop your transcript here' : 'Drag & drop your transcript PDF'}
               </p>
-              <p style={{ fontSize: 14, color: '#6b7280', marginBottom: 16 }}>or</p>
+              <p style={{ fontSize: 14, color: '#9ca3af', marginBottom: 16 }}>or</p>
               <label htmlFor="file-upload">
                 <button
                   type="button"

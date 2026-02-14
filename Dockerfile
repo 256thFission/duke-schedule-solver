@@ -1,0 +1,38 @@
+# Duke Schedule Solver — Backend API
+# Multi-stage build to keep image small
+
+FROM python:3.10-slim AS base
+
+WORKDIR /app
+
+# Install system dependencies needed by ortools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+COPY requirements-prod.txt .
+RUN pip install --no-cache-dir -r requirements-prod.txt
+
+# Copy application code
+COPY scripts/ scripts/
+COPY backend/ backend/
+COPY config/ config/
+
+# Copy data (the only runtime-required file is processed_courses.json)
+COPY dataslim/processed/processed_courses.json dataslim/processed/processed_courses.json
+
+# Python path: backend/ for local imports (schemas, utils), /app for scripts/
+ENV PYTHONPATH="/app/backend:/app"
+
+# Environment defaults (override at runtime)
+ENV ALLOWED_ORIGINS="*"
+ENV UVICORN_WORKERS=2
+
+EXPOSE 8000
+
+# Run with multiple workers for production concurrency
+CMD uvicorn backend.main:app \
+    --host 0.0.0.0 \
+    --port 8000 \
+    --workers ${UVICORN_WORKERS}

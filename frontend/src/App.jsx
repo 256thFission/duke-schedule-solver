@@ -37,7 +37,7 @@ function App() {
           Duke Schedule Solver
         </h1>
         <p style={{ fontSize: '16px', color: '#6b7280' }}>
-          Find your perfect course schedule in 7 easy steps
+         Mathmatically optimize the liberal arts education :D
         </p>
       </header>
 

@@ -338,7 +338,7 @@ export default function Step6Results() {
         marginBottom: 20, flexWrap: 'wrap', gap: 12,
       }}>
         <h2 style={{ margin: 0, textDecoration: 'underline' }}>
-          Your Schedule Options
+          Schedule Options:
         </h2>
         {schedules.length > 1 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

@@ -33,6 +33,24 @@ const REQUIREMENT_METADATA_2025 = {
   LG: { label: 'World Languages', category: 'Language' },
 };
 
+const REQUIREMENT_METADATA_PRATT_PRE2025 = {
+  ALP: { label: 'Arts, Literature, Performance', category: 'SS/H Requirements' },
+  CZ: { label: 'Civilizations', category: 'SS/H Requirements' },
+  SS: { label: 'Social Sciences', category: 'SS/H Requirements' },
+  FL: { label: 'Foreign Language', category: 'SS/H Requirements' },
+};
+
+const REQUIREMENT_METADATA_PRATT_2025 = {
+  CE: { label: 'Creating & Engaging with Art', category: 'Liberal Arts Requirements' },
+  HI: { label: 'Humanistic Inquiry', category: 'Liberal Arts Requirements' },
+  IJ: { label: 'Interpreting Institutions, Justice & Power', category: 'Liberal Arts Requirements' },
+  SB: { label: 'Social & Behavioral Analysis', category: 'Liberal Arts Requirements' },
+  LG: { label: 'World Languages', category: 'Liberal Arts Requirements' },
+};
+
+const PRATT_CODES_PRE2025 = new Set(['ALP', 'CZ', 'SS', 'FL']);
+const PRATT_CODES_2025 = new Set(['CE', 'HI', 'IJ', 'SB', 'LG']);
+
 function RequirementProgressCard({ req, isSelected, onToggle, metadataMap }) {
   const meta = metadataMap[req.code] || { label: req.name };
   const progressColor =
@@ -122,10 +140,29 @@ export default function Step3Requirements() {
       graduationRequirements?.needed_attributes?.length > 0 &&
       config.requirements.attributes.length === 0
     ) {
-      const needed = graduationRequirements.needed_attributes;
-      const recommendedMin = Math.min(2, Math.max(1, needed.length));
-      updateRequirements({ attributes: needed, min_count: recommendedMin });
-      setAutoApplied(true);
+      let needed = graduationRequirements.needed_attributes;
+      if (config.is_pratt) {
+        const codes = config.matriculation_year === '2025plus' ? PRATT_CODES_2025 : PRATT_CODES_PRE2025;
+        // Only pick Pratt-eligible codes that are NOT already completed
+        const allReqs = config.matriculation_year === '2025plus'
+          ? [
+              ...Object.values(graduationRequirements.liberal_arts_distribution || {}),
+              ...Object.values(graduationRequirements.other_requirements || {}),
+            ]
+          : [
+              ...Object.values(graduationRequirements.areas_of_knowledge || {}),
+              ...Object.values(graduationRequirements.modes_of_inquiry || {}),
+            ];
+        const completedCodes = new Set(
+          allReqs.filter((r) => r.completed >= 1).map((r) => r.code)
+        );
+        needed = needed.filter((a) => codes.has(a) && !completedCodes.has(a));
+      }
+      if (needed.length > 0) {
+        const recommendedMin = Math.min(2, Math.max(1, needed.length));
+        updateRequirements({ attributes: needed, min_count: recommendedMin });
+        setAutoApplied(true);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -142,24 +179,72 @@ export default function Step3Requirements() {
   const isSelected = (code) => config.requirements.attributes.includes(code);
 
   const is2025 = config.matriculation_year === '2025plus';
-  const REQUIREMENT_METADATA = is2025 ? REQUIREMENT_METADATA_2025 : REQUIREMENT_METADATA_PRE2025;
+  const isPratt = config.is_pratt === true;
+  const prattCodes = is2025 ? PRATT_CODES_2025 : PRATT_CODES_PRE2025;
+
+  const REQUIREMENT_METADATA = isPratt
+    ? (is2025 ? REQUIREMENT_METADATA_PRATT_2025 : REQUIREMENT_METADATA_PRATT_PRE2025)
+    : (is2025 ? REQUIREMENT_METADATA_2025 : REQUIREMENT_METADATA_PRE2025);
+
+  const filterForPratt = (reqs) => {
+    if (!isPratt) return reqs;
+    return reqs
+      .filter((r) => prattCodes.has(r.code))
+      .map((r) => ({
+        ...r,
+        required: 1,
+        completed: Math.min(r.completed, 1),
+        is_complete: r.completed >= 1,
+        progress_percent: r.completed >= 1 ? 100 : 0,
+      }));
+  };
 
   const areasOfKnowledge = graduationRequirements
-    ? Object.values(graduationRequirements.areas_of_knowledge)
+    ? filterForPratt(Object.values(graduationRequirements.areas_of_knowledge))
     : [];
   const modesOfInquiry = graduationRequirements
-    ? Object.values(graduationRequirements.modes_of_inquiry)
+    ? filterForPratt(Object.values(graduationRequirements.modes_of_inquiry))
     : [];
   const liberalArtsDistribution = graduationRequirements
-    ? Object.values(graduationRequirements.liberal_arts_distribution || {})
+    ? filterForPratt(
+        isPratt && is2025
+          ? [
+              ...Object.values(graduationRequirements.liberal_arts_distribution || {}),
+              ...Object.values(graduationRequirements.other_requirements || {}),
+            ]
+          : Object.values(graduationRequirements.liberal_arts_distribution || {})
+      )
     : [];
 
   return (
     <div style={{ maxWidth: 800, margin: '0 auto' }}>
       <h2>Graduation Requirements</h2>
       <p>
-        Select the gen-ed attributes you'd like to fulfill this semester.
+        What graduation requirements do you want the solver to find?
+        hint: <a href="https://trinity.duke.edu/undergraduate/academic-policies/graduation-requirements" target="_blank" rel="noopener noreferrer">here</a>
       </p>
+
+      {/* Pratt info banner */}
+      {isPratt && (
+        <div
+          style={{
+            padding: '12px 16px',
+            backgroundColor: '#fefce8',
+            border: '2px solid #fde68a',
+            borderRadius: 8,
+            marginBottom: 20,
+          }}
+        >
+          <div style={{ fontWeight: 700, fontSize: 14, color: '#92400e', marginBottom: 4 }}>
+            Pratt School of Engineering
+          </div>
+          <p style={{ fontSize: 13, color: '#78350f', margin: 0 }}>
+            {is2025
+              ? 'Pratt requires 5 courses from Liberal Arts codes (CE, HI, IJ, SB, LG). Must cover at least 4 of the 5 categories. QC and NW are excluded.'
+              : 'Pratt requires 5 courses from SS/H codes (ALP, CZ, SS, FL). Depth requirement: at least 2 courses in one subject area.'}
+          </p>
+        </div>
+      )}
 
       {/* Auto-select banner */}
       {autoApplied && (
@@ -197,10 +282,7 @@ export default function Step3Requirements() {
 
       {/* Solver constraint — at top */}
       <fieldset>
-        <legend>How many courses should cover these?</legend>
-        <p style={{ fontSize: 13, color: '#6b7280', marginTop: 4, marginBottom: 12 }}>
-          Choose how many of your courses you want to count toward gen-ed requirements.
-        </p>
+        <legend>How many courses should be Reqs?</legend>
 
         {config.requirements.attributes.length > 0 ? (
           <>
@@ -228,10 +310,10 @@ export default function Step3Requirements() {
                 fontSize: 13,
               }}
             >
-              Selected: {config.requirements.attributes.map((c) => `[${c}]`).join(' ')}
+              {config.requirements.attributes.map((c) => `[${c}]`).join(' ')}
               {config.requirements.min_count > 0 && (
                 <span style={{ color: '#047857' }}>
-                  {' '}| Min {config.requirements.min_count} course(s)
+                  {' '}|  {config.requirements.min_count} course(s) will have these codes
                 </span>
               )}
             </div>
@@ -252,7 +334,7 @@ export default function Step3Requirements() {
           {is2025 && liberalArtsDistribution.length > 0 && (
             <>
               <h4 style={{ marginTop: 0, fontSize: 14, color: '#6b7280' }}>
-                Liberal Arts Distribution (2 courses each)
+                {isPratt ? 'Liberal Arts Requirements (5 courses, 4+ categories)' : 'Liberal Arts Distribution (2 courses each)'}
               </h4>
               <div
                 style={{
