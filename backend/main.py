@@ -7,6 +7,7 @@ Provides 3 RESTful endpoints:
 3. POST /solve - Generate optimal schedules from configuration
 """
 
+import os
 import sys
 import tempfile
 import traceback
@@ -52,10 +53,13 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS middleware for local development
+# CORS middleware — configurable via ALLOWED_ORIGINS env var (comma-separated)
+_default_origins = "http://localhost:5173"
+_origins = os.environ.get("ALLOWED_ORIGINS", _default_origins).split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Vite dev server default port
+    allow_origins=[o.strip() for o in _origins],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
