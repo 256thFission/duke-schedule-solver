@@ -9,7 +9,7 @@ import { useState } from 'react';
 import useConfigStore from '../../store/configStore';
 import { api } from '../../utils/api';
 
-const REQUIREMENT_NAMES = {
+const REQUIREMENT_NAMES_PRE2025 = {
   ALP: 'Arts, Literature & Performance',
   CZ: 'Civilizations',
   NS: 'Natural Sciences',
@@ -21,6 +21,17 @@ const REQUIREMENT_NAMES = {
   R: 'Research',
   W: 'Writing',
   FL: 'Foreign Language',
+};
+
+const REQUIREMENT_NAMES_2025 = {
+  CE: 'Creating & Engaging with Art',
+  HI: 'Humanistic Inquiry',
+  IJ: 'Interpreting Institutions, Justice & Power',
+  NW: 'Investigating the Natural World',
+  QC: 'Quantitative & Computational Reasoning',
+  SB: 'Social & Behavioral Analysis',
+  WR: 'Writing (WRITING 120)',
+  LG: 'World Languages',
 };
 
 function ProgressBar({ percent, color = '#3b82f6', bg = '#e5e7eb', height = 8 }) {
@@ -38,7 +49,7 @@ function ProgressBar({ percent, color = '#3b82f6', bg = '#e5e7eb', height = 8 })
   );
 }
 
-function RequirementRow({ req }) {
+function RequirementRow({ req, nameMap }) {
   const color = req.is_complete ? '#10b981' : req.completed > 0 ? '#f59e0b' : '#d1d5db';
   return (
     <div
@@ -69,7 +80,7 @@ function RequirementRow({ req }) {
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 3 }}>
           <span style={{ fontWeight: 600 }}>
-            {req.code} — {REQUIREMENT_NAMES[req.code] || req.name}
+            {req.code} — {(nameMap || {})[req.code] || req.name}
           </span>
           <span style={{ color: '#6b7280', flexShrink: 0 }}>
             {req.completed}/{req.required}
@@ -133,7 +144,7 @@ function CollapsibleSection({ title, count, color, bgColor, borderColor, default
 }
 
 export default function Step1Upload() {
-  const { setCompletedCourses, nextStep } = useConfigStore();
+  const { config, setCompletedCourses, nextStep } = useConfigStore();
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState(null);
@@ -149,7 +160,7 @@ export default function Step1Upload() {
     setError(null);
 
     try {
-      const result = await api.parseTranscript(file);
+      const result = await api.parseTranscript(file, config.matriculation_year || 'pre2025');
 
       if (result.success && result.matched > 0) {
         setCompletedCourses(
@@ -191,16 +202,27 @@ export default function Step1Upload() {
   const handleSkip = () => nextStep();
 
   // Build requirements sections from graduation_requirements
-  const gradReqs = uploadResult?.graduation_requirements;
-  const areasOfKnowledge = gradReqs?.areas_of_knowledge
-    ? Object.values(gradReqs.areas_of_knowledge)
-    : [];
-  const modesOfInquiry = gradReqs?.modes_of_inquiry
-    ? Object.values(gradReqs.modes_of_inquiry)
-    : [];
+  const is2025 = config.matriculation_year === '2025plus';
+  const reqNameMap = is2025 ? REQUIREMENT_NAMES_2025 : REQUIREMENT_NAMES_PRE2025;
 
-  const completedReqs = [...areasOfKnowledge, ...modesOfInquiry].filter((r) => r.is_complete);
-  const incompleteReqs = [...areasOfKnowledge, ...modesOfInquiry].filter((r) => !r.is_complete);
+  const gradReqs = uploadResult?.graduation_requirements;
+  let allReqsList = [];
+  if (gradReqs) {
+    if (is2025) {
+      allReqsList = [
+        ...Object.values(gradReqs.liberal_arts_distribution || {}),
+        ...Object.values(gradReqs.other_requirements || {}),
+      ];
+    } else {
+      allReqsList = [
+        ...Object.values(gradReqs.areas_of_knowledge || {}),
+        ...Object.values(gradReqs.modes_of_inquiry || {}),
+      ];
+    }
+  }
+
+  const completedReqs = allReqsList.filter((r) => r.is_complete);
+  const incompleteReqs = allReqsList.filter((r) => !r.is_complete);
 
   return (
     <div style={{ maxWidth: 660, margin: '0 auto' }}>
@@ -385,7 +407,7 @@ export default function Step1Upload() {
                     defaultOpen={true}
                   >
                     {incompleteReqs.map((r) => (
-                      <RequirementRow key={r.code} req={r} />
+                      <RequirementRow key={r.code} req={r} nameMap={reqNameMap} />
                     ))}
                   </CollapsibleSection>
                 )}

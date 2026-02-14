@@ -39,9 +39,11 @@ class SolverRequest(BaseModel):
 
     This is the Single Config Object that flows through the entire application.
     """
+    matriculation_year: Optional[str] = Field(None, description="'pre2025' or '2025plus'")
     user_class_year: Optional[str] = Field(None, description="first_year, sophomore, junior, or senior")
     completed_courses: List[str] = Field(default_factory=list, description="Course IDs already completed")
     required_courses: List[str] = Field(default_factory=list, description="Course IDs that must be included")
+    banned_courses: List[str] = Field(default_factory=list, description="Course IDs to exclude from results (reroll bans)")
     num_courses: int = Field(default=4, ge=1, le=6, description="Number of courses to schedule")
     weights: WeightsInput
     constraints: ConstraintsInput
@@ -61,9 +63,11 @@ class RequirementProgressData(BaseModel):
 
 
 class GraduationRequirementsData(BaseModel):
-    """Graduation requirements analysis for transcript."""
-    areas_of_knowledge: Dict[str, RequirementProgressData]
-    modes_of_inquiry: Dict[str, RequirementProgressData]
+    """Graduation requirements analysis for transcript (supports both curricula)."""
+    areas_of_knowledge: Dict[str, RequirementProgressData] = Field(default_factory=dict)
+    modes_of_inquiry: Dict[str, RequirementProgressData] = Field(default_factory=dict)
+    liberal_arts_distribution: Dict[str, RequirementProgressData] = Field(default_factory=dict)
+    other_requirements: Dict[str, RequirementProgressData] = Field(default_factory=dict)
     needed_attributes: List[str] = Field(description="Attributes still needed to graduate")
     overall_progress_percent: float
 
@@ -87,6 +91,15 @@ class CourseSearchResponse(BaseModel):
     total: int = Field(description="Total number of matches")
 
 
+class LinkedSectionData(BaseModel):
+    """Info about a non-enrollment section linked to an enrollment section (e.g., lecture linked to a lab)."""
+    section: str = Field(description="Section number (e.g., '001')")
+    component: str = Field(default='', description="Component type (LEC, LAB, DIS, etc.)")
+    schedule: Dict[str, Any] = Field(default_factory=dict, description="Schedule info (days, start_time, end_time, location)")
+    class_nbr: Optional[int] = Field(None, description="Class number")
+    instructor_name: str = Field(default='', description="Instructor name")
+
+
 class SectionData(BaseModel):
     """Individual course section within a schedule."""
     course_id: str
@@ -97,6 +110,8 @@ class SectionData(BaseModel):
     integer_schedule: List[List[int]] = Field(description="[(start_mins, end_mins), ...]")
     z_scores: Dict[str, float] = Field(description="Metric z-scores for this section")
     attributes: List[str] = Field(default_factory=list, description="Course attributes")
+    component: str = Field(default='', description="Component type (LEC, LAB, DIS, etc.)")
+    linked_sections: List[LinkedSectionData] = Field(default_factory=list, description="Linked non-enrollment sections (e.g., lectures paired with this lab)")
 
 
 class ScheduleData(BaseModel):

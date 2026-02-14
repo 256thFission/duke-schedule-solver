@@ -1,5 +1,6 @@
 """Stage 2: Normalize catalog and evaluation data."""
 from typing import List, Dict, Set
+from collections import defaultdict
 import re
 import json
 from pathlib import Path
@@ -254,6 +255,8 @@ def normalize_catalog(catalog: List[Dict]) -> List[Dict]:
             'catalog_nbr': entry['catalog_nbr'],
             'section': entry['class_section'],
             'class_nbr': entry['class_nbr'],
+            'component': entry.get('component', ''),  # LEC, LAB, DIS, etc.
+            'class_type': entry.get('class_type', 'E'),  # E=enrollment, N=non-enrollment
             'term': entry['strm'],
             'title': entry['descr'],
             'credits': credits,  # Credit hours (typically 0.5, 1.0, 1.5, etc.)
@@ -348,6 +351,151 @@ def normalize_evaluations(evaluations: List[Dict]) -> List[Dict]:
     return normalized
 
 
+def _merge_solver_schedules(primary_schedule: Dict, linked_schedule: Dict) -> Dict:
+    """
+    Merge two solver_schedule dicts into a composite schedule.
+
+    The composite schedule contains time slots from BOTH components,
+    enabling the solver to detect conflicts with both the enrollment
+    section (lab/discussion) AND the linked non-enrollment section (lecture).
+
+    Args:
+        primary_schedule: solver_schedule of the enrollment (E) section
+        linked_schedule: solver_schedule of the linked non-enrollment (N) section
+
+    Returns:
+        New solver_schedule dict with merged time_slots, day_indices, day_bitmask
+    """
+    if not primary_schedule:
+        return linked_schedule
+    if not linked_schedule:
+        return primary_schedule
+
+    # Concatenate time_slots and day_indices together to preserve their 1:1 mapping.
+    # Each time_slot[i] corresponds to day_indices[i] — the frontend and solver
+    # rely on this positional relationship.
+    merged_time_slots = list(primary_schedule['time_slots']) + list(linked_schedule['time_slots'])
+    merged_day_indices = list(primary_schedule['day_indices']) + list(linked_schedule['day_indices'])
+    merged_bitmask = primary_schedule['day_bitmask'] | linked_schedule['day_bitmask']
+
+    return {
+        'time_slots': merged_time_slots,
+        'day_indices': merged_day_indices,
+        'day_bitmask': merged_bitmask
+    }
+
+
+def link_linked_sections(sections: List[Dict]) -> List[Dict]:
+    """
+    Post-process normalized sections to handle lecture+lab/discussion linking.
+
+    Many Duke courses have linked components:
+    - class_type 'N' (non-enrollment): lectures you're auto-enrolled in
+    - class_type 'E' (enrollment): labs/discussions you actually register for
+
+    When you enroll in an E section, the linked N section's time is also blocked.
+    This function:
+    1. Identifies courses with both N and E type sections
+    2. For each E section, merges the linked N section's schedule into it
+    3. Marks N sections so the solver excludes them (not independently enrollable)
+    4. Stores linked lecture info on E sections for UI display
+
+    Linking heuristic:
+    - Single N section: all E sections link to it
+    - Multiple N sections: match by instructor name
+    - Multiple N, no instructor match: link E to ALL N sections (conservative)
+
+    Args:
+        sections: List of normalized section dicts
+
+    Returns:
+        Same list with composite schedules on E sections and N sections marked
+    """
+    # Group sections by course key (subject + catalog_nbr)
+    course_groups = defaultdict(list)
+    for section in sections:
+        key = f"{section['subject']}-{section['catalog_nbr']}"
+        course_groups[key].append(section)
+
+    linked_course_count = 0
+    composite_section_count = 0
+
+    for course_key, course_sections in course_groups.items():
+        n_sections = [s for s in course_sections if s.get('class_type') == 'N']
+        e_sections = [s for s in course_sections if s.get('class_type') != 'N']
+
+        if not n_sections or not e_sections:
+            continue  # Not a linked course
+
+        linked_course_count += 1
+
+        if len(n_sections) == 1:
+            # Simple case: all E sections link to the single N section
+            linked_n = n_sections[0]
+            for e_sec in e_sections:
+                e_sec['solver_schedule'] = _merge_solver_schedules(
+                    e_sec.get('solver_schedule'),
+                    linked_n.get('solver_schedule')
+                )
+                e_sec['linked_sections'] = [{
+                    'section': linked_n['section'],
+                    'component': linked_n.get('component', ''),
+                    'schedule': linked_n.get('schedule', {}),
+                    'class_nbr': linked_n.get('class_nbr'),
+                    'instructor_name': linked_n.get('instructor', {}).get('name', '')
+                }]
+                composite_section_count += 1
+        else:
+            # Multiple N sections: match by instructor
+            n_by_instructor = {}
+            for n_sec in n_sections:
+                instr = n_sec.get('instructor', {}).get('name', '')
+                if instr and not utils.is_unknown_instructor(instr):
+                    n_by_instructor[instr] = n_sec
+
+            for e_sec in e_sections:
+                e_instructor = e_sec.get('instructor', {}).get('name', '')
+                matched_n = None
+
+                if e_instructor and e_instructor in n_by_instructor:
+                    # Instructor match
+                    matched_n = [n_by_instructor[e_instructor]]
+                else:
+                    # Fallback: link to ALL N sections (conservative)
+                    matched_n = n_sections
+
+                composite_sched = e_sec.get('solver_schedule')
+                linked_info = []
+                for n_sec in matched_n:
+                    composite_sched = _merge_solver_schedules(
+                        composite_sched,
+                        n_sec.get('solver_schedule')
+                    )
+                    linked_info.append({
+                        'section': n_sec['section'],
+                        'component': n_sec.get('component', ''),
+                        'schedule': n_sec.get('schedule', {}),
+                        'class_nbr': n_sec.get('class_nbr'),
+                        'instructor_name': n_sec.get('instructor', {}).get('name', '')
+                    })
+
+                e_sec['solver_schedule'] = composite_sched
+                e_sec['linked_sections'] = linked_info
+                composite_section_count += 1
+
+        # Mark N sections as non-selectable by the solver
+        for n_sec in n_sections:
+            n_sec['_linked_non_enrollment'] = True
+
+    if linked_course_count > 0:
+        print(f"Linked lecture+lab/discussion sections for {linked_course_count} courses")
+        print(f"  Created {composite_section_count} composite sections (enrollment + linked lecture time)")
+        n_marked = sum(1 for s in sections if s.get('_linked_non_enrollment'))
+        print(f"  Marked {n_marked} non-enrollment sections for solver exclusion")
+
+    return sections
+
+
 def normalize(raw_data: Dict) -> Dict:
     """
     Main normalize function.
@@ -359,6 +507,7 @@ def normalize(raw_data: Dict) -> Dict:
         Dict with normalized 'sections' and 'evaluations'
     """
     sections = normalize_catalog(raw_data['catalog'])
+    sections = link_linked_sections(sections)
     evaluations = normalize_evaluations(raw_data['evaluations'])
 
     return {

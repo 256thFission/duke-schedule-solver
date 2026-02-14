@@ -8,7 +8,7 @@
 import { useState, useEffect } from 'react';
 import useConfigStore from '../../store/configStore';
 
-const REQUIREMENT_METADATA = {
+const REQUIREMENT_METADATA_PRE2025 = {
   ALP: { label: 'Arts, Literature, Performance', category: 'Areas of Knowledge' },
   CZ: { label: 'Civilizations', category: 'Areas of Knowledge' },
   NS: { label: 'Natural Sciences', category: 'Areas of Knowledge' },
@@ -22,8 +22,19 @@ const REQUIREMENT_METADATA = {
   FL: { label: 'Foreign Language', category: 'Modes of Inquiry' },
 };
 
-function RequirementProgressCard({ req, isSelected, onToggle }) {
-  const meta = REQUIREMENT_METADATA[req.code] || { label: req.name };
+const REQUIREMENT_METADATA_2025 = {
+  CE: { label: 'Creating & Engaging with Art', category: 'Liberal Arts Distribution' },
+  HI: { label: 'Humanistic Inquiry', category: 'Liberal Arts Distribution' },
+  IJ: { label: 'Interpreting Institutions, Justice & Power', category: 'Liberal Arts Distribution' },
+  NW: { label: 'Investigating the Natural World', category: 'Liberal Arts Distribution' },
+  QC: { label: 'Quantitative & Computational Reasoning', category: 'Liberal Arts Distribution' },
+  SB: { label: 'Social & Behavioral Analysis', category: 'Liberal Arts Distribution' },
+  WR: { label: 'Writing (WRITING 120)', category: 'First-Year Writing' },
+  LG: { label: 'World Languages', category: 'Language' },
+};
+
+function RequirementProgressCard({ req, isSelected, onToggle, metadataMap }) {
+  const meta = metadataMap[req.code] || { label: req.name };
   const progressColor =
     req.is_complete ? '#10b981' : req.completed > 0 ? '#f59e0b' : '#6b7280';
 
@@ -31,6 +42,8 @@ function RequirementProgressCard({ req, isSelected, onToggle }) {
     <button
       onClick={onToggle}
       style={{
+        width: '100%',
+        minWidth: 0,
         padding: 12,
         textAlign: 'left',
         border: isSelected ? '3px solid #3b82f6' : '2px solid #d1d5db',
@@ -39,13 +52,23 @@ function RequirementProgressCard({ req, isSelected, onToggle }) {
         cursor: 'pointer',
         transition: 'all 0.2s',
         opacity: req.is_complete && !isSelected ? 0.6 : 1,
-        minWidth: 160,
-        maxWidth: 180,
-        flex: '1 1 160px',
+        boxSizing: 'border-box',
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-        <div style={{ fontWeight: 'bold', marginBottom: 4, fontSize: 14 }}>
+        <div
+          style={{
+            fontWeight: 'bold',
+            marginBottom: 4,
+            fontSize: 14,
+            minWidth: 0,
+            overflowWrap: 'anywhere',
+            display: '-webkit-box',
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+          }}
+        >
           {isSelected && '+ '}[{req.code}] {meta.label}
         </div>
         {req.is_complete && (
@@ -118,11 +141,17 @@ export default function Step3Requirements() {
 
   const isSelected = (code) => config.requirements.attributes.includes(code);
 
+  const is2025 = config.matriculation_year === '2025plus';
+  const REQUIREMENT_METADATA = is2025 ? REQUIREMENT_METADATA_2025 : REQUIREMENT_METADATA_PRE2025;
+
   const areasOfKnowledge = graduationRequirements
     ? Object.values(graduationRequirements.areas_of_knowledge)
     : [];
   const modesOfInquiry = graduationRequirements
     ? Object.values(graduationRequirements.modes_of_inquiry)
+    : [];
+  const liberalArtsDistribution = graduationRequirements
+    ? Object.values(graduationRequirements.liberal_arts_distribution || {})
     : [];
 
   return (
@@ -219,18 +248,47 @@ export default function Step3Requirements() {
         <fieldset style={{ marginTop: 20, marginBottom: 24, minWidth: 0 }}>
           <legend>Your Progress</legend>
 
-          {areasOfKnowledge.length > 0 && (
+          {/* 2025+ curriculum: Liberal Arts Distribution */}
+          {is2025 && liberalArtsDistribution.length > 0 && (
+            <>
+              <h4 style={{ marginTop: 0, fontSize: 14, color: '#6b7280' }}>
+                Liberal Arts Distribution (2 courses each)
+              </h4>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(clamp(160px, 22vw, 200px), 1fr))',
+                  gap: 12,
+                  marginBottom: 20,
+                  alignItems: 'stretch',
+                }}
+              >
+                {liberalArtsDistribution.map((req) => (
+                  <RequirementProgressCard
+                    key={req.code}
+                    req={req}
+                    isSelected={isSelected(req.code)}
+                    onToggle={() => toggleAttribute(req.code)}
+                    metadataMap={REQUIREMENT_METADATA}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Pre-2025 curriculum: Areas of Knowledge */}
+          {!is2025 && areasOfKnowledge.length > 0 && (
             <>
               <h4 style={{ marginTop: 0, fontSize: 14, color: '#6b7280' }}>
                 Areas of Knowledge
               </h4>
               <div
                 style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(clamp(160px, 22vw, 200px), 1fr))',
                   gap: 12,
                   marginBottom: 20,
-                  justifyContent: 'flex-start',
+                  alignItems: 'stretch',
                 }}
               >
                 {areasOfKnowledge.map((req) => (
@@ -239,23 +297,25 @@ export default function Step3Requirements() {
                     req={req}
                     isSelected={isSelected(req.code)}
                     onToggle={() => toggleAttribute(req.code)}
+                    metadataMap={REQUIREMENT_METADATA}
                   />
                 ))}
               </div>
             </>
           )}
 
-          {modesOfInquiry.length > 0 && (
+          {/* Pre-2025 curriculum: Modes of Inquiry */}
+          {!is2025 && modesOfInquiry.length > 0 && (
             <>
               <h4 style={{ marginTop: 16, fontSize: 14, color: '#6b7280' }}>
                 Modes of Inquiry
               </h4>
               <div
                 style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(clamp(160px, 22vw, 200px), 1fr))',
                   gap: 12,
-                  justifyContent: 'flex-start',
+                  alignItems: 'stretch',
                 }}
               >
                 {modesOfInquiry.map((req) => (
@@ -264,6 +324,7 @@ export default function Step3Requirements() {
                     req={req}
                     isSelected={isSelected(req.code)}
                     onToggle={() => toggleAttribute(req.code)}
+                    metadataMap={REQUIREMENT_METADATA}
                   />
                 ))}
               </div>
