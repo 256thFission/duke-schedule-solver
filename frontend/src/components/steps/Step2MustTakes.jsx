@@ -60,7 +60,6 @@ export default function Step2MustTakes() {
   return (
     <div style={{ maxWidth: '600px', margin: '0 auto' }}>
       <h2>Course Setup</h2>
-      <p>Choose how many courses to take, then pin any must-takes.</p>
 
       {/* Number of Courses */}
       <fieldset>

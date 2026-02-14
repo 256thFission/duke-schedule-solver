@@ -13,6 +13,7 @@ const useConfigStore = create((set) => ({
   // -------------------------------------------------------------------------
   config: {
     matriculation_year: null,  // 'pre2025' or '2025plus'
+    is_pratt: null,              // null = unselected, true = Pratt, false = Trinity
     user_class_year: null,
     completed_courses: [],
     required_courses: [],
@@ -66,6 +67,11 @@ const useConfigStore = create((set) => ({
   setMatriculationYear: (year) =>
     set((state) => ({
       config: { ...state.config, matriculation_year: year },
+    })),
+
+  setPratt: (isPratt) =>
+    set((state) => ({
+      config: { ...state.config, is_pratt: isPratt },
     })),
 
   updateConfig: (updates) =>
@@ -153,14 +159,14 @@ const useConfigStore = create((set) => ({
     set((state) => {
       const presets = {
         chill: {
-          difficulty_target: 2,
-          workload_target: 2,
+          difficulty_target: 1,
+          workload_target: 1,
           instructor_priority: 5,
           quality_priority: 5,
         },
         balanced: {
-          difficulty_target: 5,
-          workload_target: 5,
+          difficulty_target: 4,
+          workload_target: 4,
           instructor_priority: 7,
           quality_priority: 7,
         },
@@ -168,13 +174,13 @@ const useConfigStore = create((set) => ({
           difficulty_target: 4,
           workload_target: 4,
           instructor_priority: 10,
-          quality_priority: 10,
+          quality_priority: 5,
         },
         grindset: {
-          difficulty_target: 9,
-          workload_target: 9,
+          difficulty_target: 5,
+          workload_target: 5,
           instructor_priority: 7,
-          quality_priority: 9,
+          quality_priority: 10,
         },
       };
 
@@ -251,6 +257,7 @@ const useConfigStore = create((set) => ({
     set({
       config: {
         matriculation_year: null,
+        is_pratt: null,
         user_class_year: null,
         completed_courses: [],
         required_courses: [],

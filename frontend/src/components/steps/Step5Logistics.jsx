@@ -115,6 +115,14 @@ export default function Step5Logistics() {
         <legend>Review Your Configuration</legend>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 14 }}>
 
+          {/* School */}
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: '#6b7280' }}>School</span>
+            <span>{config.is_pratt ? 'Pratt School of Engineering' : 'Trinity College'}</span>
+          </div>
+
+          <hr style={{ border: 'none', borderTop: '1px solid #e5e7eb', margin: 0 }} />
+
           {/* Transcript / class year */}
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span style={{ color: '#6b7280' }}>Transcript</span>

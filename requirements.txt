@@ -10,8 +10,13 @@ numpy>=1.23.0
 # Optional: For better CLI formatting
 colorama>=0.4.6
 
-# Web UI
+# Web UI (legacy)
 gradio>=6.0.0
 
 # PDF parsing
 pdfplumber>=0.10.0
+
+# FastAPI Backend
+fastapi>=0.104.0
+uvicorn>=0.24.0
+python-multipart>=0.0.6
