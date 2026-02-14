@@ -49,6 +49,10 @@ class Section:
     # Cross-listings (for prerequisite matching)
     cross_listings: List[str] = field(default_factory=list)
 
+    # Component type (LEC, LAB, DIS, etc.) and linked sections
+    component: str = ''
+    linked_sections: List[Dict] = field(default_factory=list)
+
     # Optional: Risk metrics for risk-averse optimization
     risk_metrics: Optional[Dict[str, float]] = None
 
@@ -124,6 +128,10 @@ class Section:
         instructor = section_dict.get('instructor', {})
         instructor_name = instructor.get('name', 'Unknown')
 
+        # Extract component type and linked sections
+        component = section_dict.get('component', '')
+        linked_sections = section_dict.get('linked_sections', [])
+
         return cls(
             section_id=section_id,
             course_id=course_id or 'UNKNOWN',
@@ -138,6 +146,8 @@ class Section:
             attribute_flags=attribute_flags,
             enrollment_restrictions=enrollment_restrictions,
             cross_listings=cross_listings,
+            component=component,
+            linked_sections=linked_sections,
             risk_metrics=risk_metrics
         )
 
@@ -179,6 +189,7 @@ def load_sections(pipeline_output_path: str) -> List[Section]:
 
     sections = []
     skipped_no_schedule = 0
+    skipped_non_enrollment = 0
     skipped_errors = 0
     error_samples = []  # Collect first few errors for debugging
 
@@ -188,6 +199,14 @@ def load_sections(pipeline_output_path: str) -> List[Section]:
             course_id = section_dict.get('course_id', 'UNKNOWN')
             section_num = section_dict.get('section', '?')
             identifier = f"{course_id}-{section_num}"
+
+            # Skip non-enrollment sections (linked lectures/labs that are
+            # auto-enrolled when you register for the enrollment section).
+            # Their time slots are already merged into the enrollment section's
+            # composite schedule by the pipeline.
+            if section_dict.get('_linked_non_enrollment'):
+                skipped_non_enrollment += 1
+                continue
 
             # Skip sections without schedules (online async, TBA, etc.)
             solver_data = section_dict.get('solver_data', {})
@@ -204,6 +223,9 @@ def load_sections(pipeline_output_path: str) -> List[Section]:
                 skipped_errors += 1
 
     print(f"  Loaded {len(sections)} sections")
+
+    if skipped_non_enrollment > 0:
+        print(f"  Skipped {skipped_non_enrollment} non-enrollment sections (linked lecture/lab time merged into enrollment sections)")
 
     if skipped_no_schedule > 0:
         print(f"  Skipped {skipped_no_schedule} sections (no schedule/TBA)")
@@ -435,6 +457,7 @@ class ScheduleSolver:
             add_conflict_constraints,
             add_course_load_constraint,
             add_required_courses_constraints,
+            add_one_section_per_course_constraint,
             add_useful_attributes_constraint,
             add_days_off_constraint,
             validate_feasibility
@@ -493,6 +516,13 @@ class ScheduleSolver:
                 self.config.required_courses
             )
             print(f"    - Required courses ({len(self.config.required_courses)} courses)")
+
+        # 3b. At most one section per course (prevents duplicate course picks)
+        add_one_section_per_course_constraint(
+            self.model,
+            self.variables,
+            self.sections
+        )
 
         # 4. Useful attributes (optional)
         if self.config.useful_attributes and self.config.useful_attributes.enabled:

@@ -141,6 +141,40 @@ def add_required_courses_constraints(
             print(f"  Note: Matched '{requested_course_id}' to '{matched_course_id}'")
 
 
+def add_one_section_per_course_constraint(
+    model: cp_model.CpModel,
+    variables: List[cp_model.IntVar],
+    sections: List[Section]
+) -> None:
+    """
+    Ensure at most one section per distinct course is selected.
+
+    Without this, the solver could pick two different sections of the
+    same course (e.g., two sections of COMPSCI-201 at different times)
+    as separate course slots.
+
+    For each course_id:
+        Σ x[i] for all i where sections[i].course_id == course_id <= 1
+
+    Args:
+        model: CP-SAT model
+        variables: List of boolean decision variables
+        sections: List of all sections
+    """
+    course_to_indices: Dict[str, List[int]] = {}
+    for idx, section in enumerate(sections):
+        course_to_indices.setdefault(section.course_id, []).append(idx)
+
+    count = 0
+    for course_id, indices in course_to_indices.items():
+        if len(indices) > 1:
+            model.Add(sum(variables[i] for i in indices) <= 1)
+            count += 1
+
+    if count > 0:
+        print(f"    - One-section-per-course ({count} courses with multiple sections)")
+
+
 def add_useful_attributes_constraint(
     model: cp_model.CpModel,
     variables: List[cp_model.IntVar],

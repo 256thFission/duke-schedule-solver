@@ -19,12 +19,12 @@ export default function Step4Preferences() {
   };
 
   return (
-    <div style={{ maxWidth: '700px', margin: '0 auto', padding: '0 16px' }}>
+    <div style={{ maxWidth: '700px', margin: '0 auto', padding: '0 20px 24px', boxSizing: 'border-box' }}>
       <h2 style={{ fontSize: 'clamp(1.5rem, 4vw, 2rem)', marginBottom: '0.5rem' }}>What kind of semester do you want?</h2>
       <p style={{ fontSize: 'clamp(0.9rem, 2.5vw, 1rem)', color: '#6b7280' }}>Choose a preset or customize your preferences with the sliders below.</p>
 
       {/* Preset Buttons */}
-      <fieldset>
+      <fieldset style={{ margin: '0 0 16px', padding: '16px', boxSizing: 'border-box', }}>
         <legend>Quick Presets</legend>
 
         <div
@@ -61,7 +61,7 @@ export default function Step4Preferences() {
       </fieldset>
 
       {/* Custom Sliders */}
-      <fieldset>
+      <fieldset style={{ margin: 0, padding: '16px', boxSizing: 'border-box' }}>
         <legend>Custom Preferences</legend>
 
         {activePreset && (

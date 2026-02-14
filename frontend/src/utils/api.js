@@ -14,13 +14,16 @@ export const api = {
    * @param {File} file - PDF file object
    * @returns {Promise<Object>} Transcript response with matched courses
    */
-  parseTranscript: async (file) => {
+  parseTranscript: async (file, matriculationYear = 'pre2025') => {
     const formData = new FormData();
     formData.append('file', file);
 
     // Don't manually set Content-Type — axios auto-sets it with the
     // correct multipart boundary when given a FormData object
-    const { data } = await axios.post(`${API_BASE}/parse-transcript`, formData);
+    const { data } = await axios.post(
+      `${API_BASE}/parse-transcript?matriculation_year=${encodeURIComponent(matriculationYear)}`,
+      formData
+    );
 
     return data;
   },
