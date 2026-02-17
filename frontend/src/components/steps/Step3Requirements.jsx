@@ -51,7 +51,7 @@ const REQUIREMENT_METADATA_PRATT_2025 = {
 const PRATT_CODES_PRE2025 = new Set(['ALP', 'CZ', 'SS', 'FL']);
 const PRATT_CODES_2025 = new Set(['CE', 'HI', 'IJ', 'SB', 'LG']);
 
-function RequirementProgressCard({ req, isSelected, onToggle, metadataMap }) {
+function RequirementProgressCard({ req, isSelected, onToggle, metadataMap, style }) {
   const meta = metadataMap[req.code] || { label: req.name };
   const progressColor =
     req.is_complete ? '#10b981' : req.completed > 0 ? '#f59e0b' : '#6b7280';
@@ -71,6 +71,7 @@ function RequirementProgressCard({ req, isSelected, onToggle, metadataMap }) {
         transition: 'all 0.2s',
         opacity: req.is_complete && !isSelected ? 0.6 : 1,
         boxSizing: 'border-box',
+        ...style,
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
@@ -338,8 +339,8 @@ export default function Step3Requirements() {
               </h4>
               <div
                 style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(clamp(160px, 22vw, 200px), 1fr))',
+                  display: 'flex',
+                  flexWrap: 'wrap',
                   gap: 12,
                   marginBottom: 20,
                   alignItems: 'stretch',
@@ -352,6 +353,7 @@ export default function Step3Requirements() {
                     isSelected={isSelected(req.code)}
                     onToggle={() => toggleAttribute(req.code)}
                     metadataMap={REQUIREMENT_METADATA}
+                    style={{ flex: '1 1 160px' }}
                   />
                 ))}
               </div>
@@ -366,8 +368,8 @@ export default function Step3Requirements() {
               </h4>
               <div
                 style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(clamp(160px, 22vw, 200px), 1fr))',
+                  display: 'flex',
+                  flexWrap: 'wrap',
                   gap: 12,
                   marginBottom: 20,
                   alignItems: 'stretch',
@@ -380,6 +382,7 @@ export default function Step3Requirements() {
                     isSelected={isSelected(req.code)}
                     onToggle={() => toggleAttribute(req.code)}
                     metadataMap={REQUIREMENT_METADATA}
+                    style={{ flex: '1 1 160px' }}
                   />
                 ))}
               </div>
@@ -394,8 +397,8 @@ export default function Step3Requirements() {
               </h4>
               <div
                 style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(clamp(160px, 22vw, 200px), 1fr))',
+                  display: 'flex',
+                  flexWrap: 'wrap',
                   gap: 12,
                   alignItems: 'stretch',
                 }}
@@ -407,6 +410,7 @@ export default function Step3Requirements() {
                     isSelected={isSelected(req.code)}
                     onToggle={() => toggleAttribute(req.code)}
                     metadataMap={REQUIREMENT_METADATA}
+                    style={{ flex: '1 1 160px' }}
                   />
                 ))}
               </div>
@@ -424,8 +428,8 @@ export default function Step3Requirements() {
           </p>
           <div
             style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              display: 'flex',
+              flexWrap: 'wrap',
               gap: 12,
               marginBottom: 20,
             }}
@@ -435,6 +439,7 @@ export default function Step3Requirements() {
                 key={code}
                 onClick={() => toggleAttribute(code)}
                 style={{
+                  flex: '1 1 160px',
                   padding: '12px 16px',
                   textAlign: 'left',
                   border: isSelected(code) ? '3px solid #3b82f6' : '2px solid #d1d5db',

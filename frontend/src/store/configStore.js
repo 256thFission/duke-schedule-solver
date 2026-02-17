@@ -54,6 +54,7 @@ const useConfigStore = create((set) => ({
   // Graduation Requirements State
   // -------------------------------------------------------------------------
   graduationRequirements: null,
+  demoUploadResult: null,
 
   // -------------------------------------------------------------------------
   // Preset State
@@ -193,55 +194,95 @@ const useConfigStore = create((set) => ({
       };
     }),
 
+  clearDemoUploadResult: () => set({ demoUploadResult: null }),
+
   applyDemoMode: () =>
-    set((state) => ({
-      config: {
-        ...state.config,
-        matriculation_year: 'pre2025',
-        is_pratt: false,
-        user_class_year: 'sophomore',
-        completed_courses: [
-          'STA-199L',
-          'CHINESE-101',
-          'COMPSCI-201',
-          'MATH-221',
-          'MATH-212',
-          'STA-221L',
-          'STA-240L',
-          'MATH-431',
-          'STA-323L',
-          'STA-332',
-          'AMES-353S',
-          'CHINESE-102',
-          'CINE-257S',
-          'ECS-101',
-          'STA-402L',
-        ],
-        required_courses: ['STA-440L'],
-        num_courses: 4,
-        weights: {
-          difficulty_target: 1,
-          workload_target: 1,
-          instructor_priority: 5,
-          quality_priority: 5,
+    set((state) => {
+      const demoMatchedCourses = [
+        'STA-199L', 'CHINESE-101', 'COMPSCI-201', 'MATH-221', 'MATH-212',
+        'STA-221L', 'STA-240L', 'MATH-431', 'STA-323L', 'STA-332',
+        'AMES-353S', 'CHINESE-102', 'CINE-257S', 'ECS-101', 'STA-402L',
+      ];
+      const demoUnmatchedCourses = [
+        'BIOLOGY 21', 'CHEM 21', 'ENGLISH 22', 'HISTORY 21',
+        'MATH 21', 'MATH 22', 'PSY 11', 'WRITING 101',
+        'ENVIRON 245', 'GSF 89S', 'STA 671D',
+      ];
+
+      const mkReq = (code, name, required, completed, courses) => ({
+        code, name, required, completed,
+        remaining: Math.max(0, required - completed),
+        is_complete: completed >= required,
+        progress_percent: required > 0 ? Math.min(100, (completed / required) * 100) : 100,
+        courses,
+      });
+
+      const graduationRequirements = {
+        areas_of_knowledge: {
+          ALP: mkReq('ALP', 'Arts, Literature, and Performance', 2, 1, ['CINE-257S']),
+          CZ:  mkReq('CZ',  'Civilizations', 2, 1, ['AMES-353S']),
+          NS:  mkReq('NS',  'Natural Sciences', 2, 0, []),
+          QS:  mkReq('QS',  'Quantitative Studies', 2, 2, ['STA-199L', 'COMPSCI-201']),
+          SS:  mkReq('SS',  'Social Sciences', 2, 1, ['ECS-101']),
         },
-        constraints: {
-          earliest_class_time: '09:00',
-          min_days_off: 1,
-          weekdays_only: true,
+        modes_of_inquiry: {
+          CCI: mkReq('CCI', 'Cross-Cultural Inquiry', 2, 1, ['AMES-353S']),
+          EI:  mkReq('EI',  'Ethical Inquiry', 2, 1, ['ECS-101']),
+          STS: mkReq('STS', 'Science, Technology, and Society', 2, 0, []),
+          R:   mkReq('R',   'Research', 2, 1, ['STA-402L']),
+          W:   mkReq('W',   'Writing', 3, 0, []),
+          FL:  mkReq('FL',  'Foreign Language', 1, 1, ['CHINESE-102']),
         },
-        requirements: {
-          attributes: ['QS', 'R'],
-          min_count: 1,
+        needed_attributes: ['ALP', 'CZ', 'NS', 'SS', 'CCI', 'EI', 'STS', 'R', 'W'],
+        overall_progress_percent: 36,
+      };
+
+      const demoUploadResult = {
+        success: true,
+        completed_courses: demoMatchedCourses,
+        class_year: 'sophomore',
+        total_extracted: demoMatchedCourses.length + demoUnmatchedCourses.length,
+        matched: demoMatchedCourses.length,
+        unmatched: demoUnmatchedCourses.length,
+        unmatched_courses: demoUnmatchedCourses,
+        graduation_requirements: graduationRequirements,
+      };
+
+      return {
+        config: {
+          ...state.config,
+          matriculation_year: 'pre2025',
+          is_pratt: false,
+          user_class_year: 'sophomore',
+          completed_courses: demoMatchedCourses,
+          required_courses: ['STA-440L'],
+          num_courses: 4,
+          weights: {
+            difficulty_target: 1,
+            workload_target: 1,
+            instructor_priority: 5,
+            quality_priority: 5,
+          },
+          constraints: {
+            earliest_class_time: '09:00',
+            min_days_off: 1,
+            weekdays_only: true,
+          },
+          requirements: {
+            attributes: ['QS', 'R'],
+            min_count: 1,
+          },
         },
-      },
-      activePreset: 'chill',
-      currentStep: 1,
-      maxStepVisited: state.totalSteps - 1,
-      schedules: [],
-      currentScheduleIndex: 0,
-      error: null,
-    })),
+        graduationRequirements,
+        demoUploadResult,
+        activePreset: 'chill',
+        currentStep: 2,
+        maxStepVisited: state.totalSteps - 1,
+        schedules: [],
+        currentScheduleIndex: 0,
+        error: null,
+      };
+    }),
 
   // -------------------------------------------------------------------------
   // Actions: Wizard Navigation
@@ -336,6 +377,7 @@ const useConfigStore = create((set) => ({
       error: null,
       activePreset: null,
       graduationRequirements: null,
+      demoUploadResult: null,
     }),
 }));
 
