@@ -193,6 +193,56 @@ const useConfigStore = create((set) => ({
       };
     }),
 
+  applyDemoMode: () =>
+    set((state) => ({
+      config: {
+        ...state.config,
+        matriculation_year: 'pre2025',
+        is_pratt: false,
+        user_class_year: 'sophomore',
+        completed_courses: [
+          'STA-199L',
+          'CHINESE-101',
+          'COMPSCI-201',
+          'MATH-221',
+          'MATH-212',
+          'STA-221L',
+          'STA-240L',
+          'MATH-431',
+          'STA-323L',
+          'STA-332',
+          'AMES-353S',
+          'CHINESE-102',
+          'CINE-257S',
+          'ECS-101',
+          'STA-402L',
+        ],
+        required_courses: ['STA-440L'],
+        num_courses: 4,
+        weights: {
+          difficulty_target: 1,
+          workload_target: 1,
+          instructor_priority: 5,
+          quality_priority: 5,
+        },
+        constraints: {
+          earliest_class_time: '09:00',
+          min_days_off: 1,
+          weekdays_only: true,
+        },
+        requirements: {
+          attributes: ['QS', 'R'],
+          min_count: 1,
+        },
+      },
+      activePreset: 'chill',
+      currentStep: 1,
+      maxStepVisited: state.totalSteps - 1,
+      schedules: [],
+      currentScheduleIndex: 0,
+      error: null,
+    })),
+
   // -------------------------------------------------------------------------
   // Actions: Wizard Navigation
   // -------------------------------------------------------------------------

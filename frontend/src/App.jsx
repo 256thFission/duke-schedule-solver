@@ -15,7 +15,15 @@ import Step5Logistics from './components/steps/Step5Logistics';
 import Step6Results from './components/steps/Step6Results';
 
 function App() {
-  const { currentStep, totalSteps, maxStepVisited, goToStep, config, error } = useConfigStore();
+  const {
+    currentStep,
+    totalSteps,
+    maxStepVisited,
+    goToStep,
+    config,
+    error,
+    applyDemoMode,
+  } = useConfigStore();
 
   const steps = [
     { number: 1, title: 'Year', component: Step0Year },
@@ -39,6 +47,41 @@ function App() {
         <p style={{ fontSize: '16px', color: '#6b7280' }}>
          Mathmatically optimize the liberal arts education :D
         </p>
+        <div
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            marginTop: 10,
+            position: 'relative',
+          }}
+        >
+          <button
+            onClick={applyDemoMode}
+            title="or demo it as me!"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              border: '2px solid #f59e0b',
+              backgroundColor: '#fff7ed',
+              color: '#9a3412',
+              borderRadius: 999,
+              padding: '8px 14px',
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            <img
+              src="/doodle/star.svg"
+              alt=""
+              aria-hidden="true"
+              style={{ width: 16, height: 16 }}
+            />
+            Demo Mode
+          </button>
+          <span style={{ fontSize: 12, color: '#b45309' }}>or demo it as me!</span>
+        </div>
       </header>
 
       {/* Progress Indicator */}
