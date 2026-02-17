@@ -57,7 +57,7 @@ function App() {
 
       {/* Footer */}
       <footer style={{ textAlign: 'center', marginTop: 60, fontSize: 'var(--font-sm)', color: 'var(--c-text-muted)' }}>
-        <p>Built for Duke students</p>
+        <p>Built by <a href="mailto:thephilliplin@gmail.com" style={{ color: 'inherit', textDecoration: 'underline' }}>Phillip Lin</a>. Hire me if it helps!</p>
         {config.completed_courses.length > 0 && (
           <p style={{ marginTop: 'var(--sp-sm)', fontSize: 'var(--font-xs)' }}>
             {config.completed_courses.length} completed courses loaded |{' '}

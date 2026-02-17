@@ -293,6 +293,7 @@ def prefilter_sections(
     removed_early = 0
     removed_prereq = 0
     removed_title_kw = 0
+    removed_attr = 0
     removed_catalog = 0
 
     for section in sections:
@@ -335,6 +336,34 @@ def prefilter_sections(
                 removed_title_kw += 1
                 continue
 
+        # Check 3.5: Attribute flag filter
+        if filters:
+            attr_flags = section.attribute_flags or {}
+            skip = False
+            if filters.independent_study and attr_flags.get('is_independent_study'):
+                skip = True
+            elif filters.special_topics and attr_flags.get('is_special_topics'):
+                skip = True
+            elif filters.tutorial and attr_flags.get('is_tutorial'):
+                skip = True
+            elif filters.constellation and attr_flags.get('is_constellation'):
+                skip = True
+            elif filters.service_learning and attr_flags.get('is_service_learning'):
+                skip = True
+            elif filters.fee_courses and attr_flags.get('is_fee_course'):
+                skip = True
+            elif filters.permission_required and attr_flags.get('is_permission_required'):
+                skip = True
+            elif filters.internship and attr_flags.get('is_internship'):
+                skip = True
+            elif getattr(filters, 'exclude_closed', False):
+                restrictions = section.enrollment_restrictions or {}
+                if restrictions.get('is_closed'):
+                    skip = True
+            if skip:
+                removed_attr += 1
+                continue
+
         # Check 4: Catalog number patterns filter
         if excluded_numbers:
             # Extract catalog number from course_id (e.g., "EDUC-75" -> "75")
@@ -354,6 +383,8 @@ def prefilter_sections(
         print(f"  Filtered out {removed_prereq} sections (missing prerequisites)")
     if removed_title_kw > 0:
         print(f"  Filtered out {removed_title_kw} sections (title keyword match)")
+    if removed_attr > 0:
+        print(f"  Filtered out {removed_attr} sections (attribute flags)")
     if removed_catalog > 0:
         print(f"  Filtered out {removed_catalog} sections (catalog number pattern)")
 
