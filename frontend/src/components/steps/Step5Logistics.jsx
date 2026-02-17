@@ -66,36 +66,36 @@ export default function Step5Logistics() {
     : null;
 
   return (
-    <div style={{ maxWidth: 600, margin: '0 auto' }}>
-      <h2>Schedule Logistics</h2>
-      <p>Set your time preferences, then review and solve.</p>
+    <div className="step-container">
+      <h2 className="step-title">Schedule Logistics</h2>
+      <p className="step-subtitle">Set your time preferences, then review and solve.</p>
 
       {/* Earliest Start Time */}
       <fieldset>
         <legend>Earliest Start Time</legend>
-        <p style={{ fontSize: 13, color: '#6b7280', marginTop: 4, marginBottom: 12 }}>
+        <p className="field-hint">
           What's the earliest you want classes to start?
         </p>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-md)' }}>
           <input
             type="time"
             value={config.constraints.earliest_class_time}
             onChange={(e) => handleTimeChange(e.target.value)}
-            style={{ fontSize: 18, padding: '8px 12px' }}
+            style={{ fontSize: 'var(--font-lg)', padding: '8px 12px' }}
           />
-          <span style={{ fontSize: 14, color: '#6b7280' }}>
+          <span style={{ fontSize: 'var(--font-sm)', color: 'var(--c-text-light)' }}>
             ({formatTime(config.constraints.earliest_class_time)})
           </span>
         </div>
       </fieldset>
 
       {/* Min Days Off */}
-      <fieldset style={{ marginTop: 20 }}>
+      <fieldset className="field-gap">
         <legend>Days Off</legend>
-        <p style={{ fontSize: 13, color: '#6b7280', marginTop: 4, marginBottom: 12 }}>
+        <p className="field-hint">
           Minimum free weekdays per week (no classes scheduled).
         </p>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-md)' }}>
           <input
             type="range"
             min="0"
@@ -104,28 +104,24 @@ export default function Step5Logistics() {
             onChange={(e) => updateConstraints({ min_days_off: parseInt(e.target.value, 10) })}
             style={{ flex: 1 }}
           />
-          <span style={{ fontSize: 18, fontWeight: 'bold', minWidth: 32, textAlign: 'center' }}>
+          <span style={{ fontSize: 'var(--font-lg)', fontWeight: 'bold', minWidth: 32, textAlign: 'center' }}>
             {config.constraints.min_days_off}
           </span>
         </div>
       </fieldset>
 
       {/* Config Summary */}
-      <fieldset style={{ marginTop: 20 }}>
+      <fieldset className="field-gap">
         <legend>Review Your Configuration</legend>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 14 }}>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
 
-          {/* School */}
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: '#6b7280' }}>School</span>
+          <div className="summary-row">
+            <span className="summary-label">School</span>
             <span>{config.is_pratt ? 'Pratt School of Engineering' : 'Trinity College'}</span>
           </div>
 
-          <hr style={{ border: 'none', borderTop: '1px solid #e5e7eb', margin: 0 }} />
-
-          {/* Transcript / class year */}
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: '#6b7280' }}>Transcript</span>
+          <div className="summary-row">
+            <span className="summary-label">Transcript</span>
             <span>
               {config.completed_courses.length > 0
                 ? `${classYear || 'Unknown'} | ${config.completed_courses.length} courses loaded`
@@ -133,11 +129,8 @@ export default function Step5Logistics() {
             </span>
           </div>
 
-          <hr style={{ border: 'none', borderTop: '1px solid #e5e7eb', margin: 0 }} />
-
-          {/* Courses */}
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: '#6b7280' }}>Courses</span>
+          <div className="summary-row">
+            <span className="summary-label">Courses</span>
             <span>
               {config.num_courses} total
               {config.required_courses.length > 0 &&
@@ -145,16 +138,13 @@ export default function Step5Logistics() {
             </span>
           </div>
           {config.required_courses.length > 0 && (
-            <div style={{ textAlign: 'right', fontSize: 12, color: '#6b7280', marginTop: -6 }}>
+            <div style={{ textAlign: 'right', fontSize: 'var(--font-xs)', color: 'var(--c-text-light)', marginTop: -6 }}>
               {config.required_courses.join(', ')}
             </div>
           )}
 
-          <hr style={{ border: 'none', borderTop: '1px solid #e5e7eb', margin: 0 }} />
-
-          {/* Requirements */}
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: '#6b7280' }}>Gen Eds</span>
+          <div className="summary-row">
+            <span className="summary-label">Gen Eds</span>
             <span>
               {config.requirements.attributes.length > 0
                 ? `${config.requirements.attributes.map((a) => `[${a}]`).join(' ')} (min ${config.requirements.min_count})`
@@ -162,23 +152,17 @@ export default function Step5Logistics() {
             </span>
           </div>
 
-          <hr style={{ border: 'none', borderTop: '1px solid #e5e7eb', margin: 0 }} />
-
-          {/* Preferences */}
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: '#6b7280' }}>Preferences</span>
-            <span style={{ fontSize: 12 }}>
+          <div className="summary-row">
+            <span className="summary-label">Preferences</span>
+            <span style={{ fontSize: 'var(--font-xs)' }}>
               {Object.entries(config.weights)
                 .map(([k, v]) => `${WEIGHT_LABELS[k] || k}: ${v}`)
                 .join(' | ')}
             </span>
           </div>
 
-          <hr style={{ border: 'none', borderTop: '1px solid #e5e7eb', margin: 0 }} />
-
-          {/* Logistics */}
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: '#6b7280' }}>Schedule</span>
+          <div className="summary-row">
+            <span className="summary-label">Schedule</span>
             <span>
               After {formatTime(config.constraints.earliest_class_time)} | {config.constraints.min_days_off} day{config.constraints.min_days_off !== 1 ? 's' : ''} off
             </span>
@@ -187,21 +171,9 @@ export default function Step5Logistics() {
       </fieldset>
 
       {/* Actions */}
-      <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
-        <button onClick={prevStep} style={{ flex: 1 }} disabled={isSolving}>
-          Back
-        </button>
-        <button
-          onClick={handleSolve}
-          disabled={isSolving}
-          style={{
-            flex: 2,
-            backgroundColor: isSolving ? '#9ca3af' : '#10b981',
-            color: 'white',
-            fontWeight: 'bold',
-            fontSize: 16,
-          }}
-        >
+      <div className="step-nav">
+        <button className="btn-back" onClick={prevStep} disabled={isSolving}>Back</button>
+        <button className="btn-solve" onClick={handleSolve} disabled={isSolving}>
           {isSolving ? 'Finding Schedules...' : 'Find Schedules'}
         </button>
       </div>

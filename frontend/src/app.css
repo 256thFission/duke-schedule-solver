@@ -1,0 +1,300 @@
+/* ==========================================================================
+   Design Tokens & Shared Styles
+   Single source of truth for the Duke Schedule Solver UI.
+   ========================================================================== */
+
+:root {
+  /* ── Typography Scale ── */
+  --font-xs:   11px;
+  --font-sm:   13px;
+  --font-base:  15px;
+  --font-lg:   18px;
+  --font-xl:   24px;
+  --font-xxl:  32px;
+
+  /* ── Colors: Neutrals ── */
+  --c-text:       #3c3c3c;   /* body text — matches doodle.css */
+  --c-text-light: #6b7280;   /* secondary / helper text */
+  --c-text-muted: #9ca3af;   /* placeholders, disabled */
+  --c-border:     #d1d5db;   /* default borders */
+  --c-border-light: #e5e7eb; /* subtle dividers */
+  --c-bg:         #FDF7F1;   /* page background — matches doodle.css */
+  --c-surface:    #ffffff;   /* cards, inputs */
+  --c-surface-dim: #f9fafb;  /* slightly dimmed surface */
+
+  /* ── Colors: Semantic ── */
+  --c-primary:       #3b82f6;  /* blue — selection, links, primary actions */
+  --c-primary-light: #eff6ff;  /* blue tint backgrounds */
+  --c-primary-border:#93c5fd;  /* blue borders */
+
+  --c-success:       #10b981;  /* green — complete, solve */
+  --c-success-light: #ecfdf5;
+  --c-success-border:#86efac;
+
+  --c-warning:       #f59e0b;  /* amber — partial, caution */
+  --c-warning-light: #fffbeb;
+  --c-warning-border:#fde68a;
+  --c-warning-text:  #92400e;
+
+  --c-danger:        #dc2626;  /* red — errors */
+  --c-danger-light:  #fef2f2;
+  --c-danger-border: #fecaca;
+
+  /* ── Spacing Scale ── */
+  --sp-xs:  4px;
+  --sp-sm:  8px;
+  --sp-md:  12px;
+  --sp-lg:  16px;
+  --sp-xl:  24px;
+  --sp-xxl: 32px;
+
+  /* ── Radii ── */
+  --r-sm:   4px;
+  --r-md:   8px;
+  --r-lg:   12px;
+  --r-pill: 999px;
+
+  /* ── Widths ── */
+  --w-narrow:  600px;  /* most wizard steps */
+  --w-medium:  720px;  /* gen-eds step */
+  --w-wide:   1100px;  /* results page */
+}
+
+/* ==========================================================================
+   Shared Layout
+   ========================================================================== */
+
+.step-container {
+  max-width: var(--w-narrow);
+  margin: 0 auto;
+}
+
+.step-container--medium {
+  max-width: var(--w-medium);
+  margin: 0 auto;
+}
+
+.step-container--wide {
+  max-width: var(--w-wide);
+  margin: 0 auto;
+}
+
+/* ── Step title ── */
+.step-title {
+  font-size: var(--font-xl);
+  margin: 0 0 var(--sp-sm) 0;
+}
+
+.step-subtitle {
+  font-size: var(--font-base);
+  color: var(--c-text-light);
+  margin: 0 0 var(--sp-xl) 0;
+}
+
+/* ==========================================================================
+   Navigation Buttons (Back / Next / Solve)
+   ========================================================================== */
+
+.step-nav {
+  display: flex;
+  gap: var(--sp-md);
+  margin-top: var(--sp-xl);
+}
+
+.step-nav button {
+  padding: var(--sp-md) var(--sp-lg);
+  font-size: var(--font-base);
+  cursor: pointer;
+}
+
+.step-nav .btn-back {
+  flex: 1;
+}
+
+.step-nav .btn-next {
+  flex: 2;
+}
+
+.step-nav .btn-next:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.step-nav .btn-solve {
+  flex: 2;
+  background-color: var(--c-success);
+  color: white;
+  font-weight: 700;
+  font-size: var(--font-lg);
+}
+
+.step-nav .btn-solve:disabled {
+  background-color: var(--c-text-muted);
+  cursor: not-allowed;
+}
+
+/* ==========================================================================
+   Fieldset Helpers
+   ========================================================================== */
+
+.field-gap {
+  margin-top: 20px;
+}
+
+/* ── Helper / description text inside fieldsets ── */
+.field-hint {
+  font-size: var(--font-sm);
+  color: var(--c-text-light);
+  margin: var(--sp-xs) 0 var(--sp-md) 0;
+}
+
+/* ==========================================================================
+   Selection Cards (year picker, school picker, preset buttons, etc.)
+   ========================================================================== */
+
+.select-card {
+  padding: var(--sp-lg) var(--sp-xl);
+  text-align: left;
+  border: 2px solid var(--c-border);
+  border-image: none;
+  background-color: var(--c-surface);
+  border-radius: var(--r-lg);
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.select-card:hover {
+  border-color: var(--c-primary-border);
+}
+
+.select-card--active {
+  border: 3px solid var(--c-primary);
+  border-image: none;
+  background-color: var(--c-primary-light);
+}
+
+/* ==========================================================================
+   Chips / Tags (pinned courses, attribute codes)
+   ========================================================================== */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-sm);
+  padding: var(--sp-xs) var(--sp-md);
+  font-size: var(--font-sm);
+  border-radius: var(--r-pill);
+  border-image: none;
+}
+
+.chip--blue {
+  background-color: #dbeafe;
+  border: 2px solid var(--c-primary);
+  border-image: none;
+}
+
+.chip--green {
+  background-color: var(--c-success-light);
+  border: 1px solid #a7f3d0;
+  border-image: none;
+  font-family: monospace;
+  font-size: var(--font-xs);
+  padding: 3px 10px;
+}
+
+.chip--yellow {
+  background-color: #fef9c3;
+  border: 1px solid var(--c-warning-border);
+  border-image: none;
+  font-family: monospace;
+  font-size: var(--font-xs);
+  padding: 3px 10px;
+}
+
+.chip__remove {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  font-size: var(--font-lg);
+  line-height: 1;
+  color: var(--c-text);
+}
+
+/* ==========================================================================
+   Banners (info, warning, error, success)
+   ========================================================================== */
+
+.banner {
+  padding: var(--sp-md) var(--sp-lg);
+  border-radius: var(--r-md);
+  border-image: none;
+  margin-bottom: var(--sp-lg);
+  font-size: var(--font-sm);
+}
+
+.banner--info {
+  background-color: var(--c-primary-light);
+  border: 2px solid var(--c-primary-border);
+  border-image: none;
+  color: #1e40af;
+}
+
+.banner--warning {
+  background-color: var(--c-warning-light);
+  border: 2px solid var(--c-warning-border);
+  border-image: none;
+  color: var(--c-warning-text);
+}
+
+.banner--error {
+  background-color: var(--c-danger-light);
+  border: 1px solid var(--c-danger-border);
+  border-image: none;
+  color: var(--c-danger);
+}
+
+.banner--success {
+  background-color: var(--c-success-light);
+  border: 2px solid var(--c-success-border);
+  border-image: none;
+  color: #047857;
+}
+
+/* ==========================================================================
+   Summary Row (used in config review)
+   ========================================================================== */
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--font-sm);
+  padding: var(--sp-sm) 0;
+}
+
+.summary-row + .summary-row {
+  border-top: 1px solid var(--c-border-light);
+}
+
+.summary-label {
+  color: var(--c-text-light);
+}
+
+/* ==========================================================================
+   Radio Dot (visual indicator for select-card)
+   ========================================================================== */
+
+.radio-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--c-border);
+  border-image: none;
+  background-color: var(--c-surface);
+  flex-shrink: 0;
+}
+
+.radio-dot--active {
+  border: 5px solid var(--c-primary);
+  border-image: none;
+}
