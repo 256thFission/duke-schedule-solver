@@ -24,7 +24,7 @@ from scripts.extract_transcript_courses import extract_courses_from_transcript
 from scripts.solver.model import load_sections, prefilter_sections, ScheduleSolver
 from scripts.solver.config import (
     SolverConfig, CourseFilters, DaysOffConstraint,
-    UsefulAttributesConstraint, PrerequisiteFilter
+    UsefulAttributesConstraint, PrerequisiteFilter, TitleKeywordsFilter
 )
 from scripts.solver.objectives import score_schedule, compute_metric_averages
 from scripts.solver.graduation_requirements import (
@@ -318,9 +318,14 @@ async def solve_schedule(config: SolverRequest) -> ScheduleResponse:
             constellation=False,
             service_learning=False,
             fee_courses=False,
-            permission_required=False,
+            permission_required=True,  # Exclude permission-required courses
             internship=True,         # Exclude by default
             exclude_closed=True,     # Exclude closed courses
+            title_keywords=TitleKeywordsFilter(
+                enabled=True,
+                keywords=["spire", "independent study", "bass connections",
+                          "internship", "capstone", "practicum", "honors", "distinction"]
+            ),
         )
 
         # Step 6: Build complete solver config
