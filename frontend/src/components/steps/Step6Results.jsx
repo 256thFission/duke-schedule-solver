@@ -44,16 +44,16 @@ const LIGHT_COLORS = [
 ];
 
 const METRIC_CONFIG = {
-  difficulty: { label: 'Difficulty', low: 'Easy', high: 'Hard', color: '#f59e0b', icon: '~' },
-  workload: { label: 'Workload', low: 'Light', high: 'Heavy', color: '#ef4444', icon: '~' },
-  instructor_quality: { label: 'Instructor Rating', low: 'Low', high: 'Excellent', color: '#3b82f6', icon: '~' },
-  course_quality: { label: 'Course Rating', low: 'Low', high: 'Excellent', color: '#10b981', icon: '~' },
-  quality: { label: 'Course Quality', low: 'Low', high: 'Excellent', color: '#10b981', icon: '~' },
-  instructor: { label: 'Instructor', low: 'Low', high: 'Excellent', color: '#3b82f6', icon: '~' },
-  avg_difficulty: { label: 'Difficulty', low: 'Easy', high: 'Hard', color: '#f59e0b', icon: '~' },
-  avg_workload: { label: 'Workload', low: 'Light', high: 'Heavy', color: '#ef4444', icon: '~' },
-  avg_instructor_quality: { label: 'Instructor Rating', low: 'Low', high: 'Excellent', color: '#3b82f6', icon: '~' },
-  avg_course_quality: { label: 'Course Rating', low: 'Low', high: 'Excellent', color: '#10b981', icon: '~' },
+  difficulty: { label: 'Difficulty', low: 'Easy', high: 'Hard', color: 'var(--c-warning)' },
+  workload: { label: 'Workload', low: 'Light', high: 'Heavy', color: '#ef4444' },
+  instructor_quality: { label: 'Instructor Rating', low: 'Low', high: 'Excellent', color: 'var(--c-primary)' },
+  course_quality: { label: 'Course Rating', low: 'Low', high: 'Excellent', color: 'var(--c-success)' },
+  quality: { label: 'Course Quality', low: 'Low', high: 'Excellent', color: 'var(--c-success)' },
+  instructor: { label: 'Instructor', low: 'Low', high: 'Excellent', color: 'var(--c-primary)' },
+  avg_difficulty: { label: 'Difficulty', low: 'Easy', high: 'Hard', color: 'var(--c-warning)' },
+  avg_workload: { label: 'Workload', low: 'Light', high: 'Heavy', color: '#ef4444' },
+  avg_instructor_quality: { label: 'Instructor Rating', low: 'Low', high: 'Excellent', color: 'var(--c-primary)' },
+  avg_course_quality: { label: 'Course Rating', low: 'Low', high: 'Excellent', color: 'var(--c-success)' },
 };
 
 // Keys that are NOT on a 1-10 scale and should be shown as plain stats
@@ -68,22 +68,22 @@ function MetricBar({ label, value, low, high, color }) {
   const pct = (capped / 10) * 100;
   return (
     <div style={{ marginBottom: 14 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
-        <span style={{ fontWeight: 600, color: '#374151' }}>{label}</span>
-        <span style={{ fontWeight: 600, color }}>{displayVal.toFixed(1)}<span style={{ fontWeight: 400, color: '#9ca3af' }}> / 10</span></span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--font-sm)', marginBottom: 4 }}>
+        <span style={{ fontWeight: 600, color: 'var(--c-text)' }}>{label}</span>
+        <span style={{ fontWeight: 600, color }}>{displayVal.toFixed(1)}<span style={{ fontWeight: 400, color: 'var(--c-text-muted)' }}> / 10</span></span>
       </div>
-      <div style={{ position: 'relative', height: 8, backgroundColor: '#f3f4f6', borderRadius: 99, overflow: 'hidden' }}>
+      <div style={{ position: 'relative', height: 8, backgroundColor: 'var(--c-surface-dim)', borderRadius: 'var(--r-pill)', overflow: 'hidden' }}>
         <div
           style={{
             height: '100%',
             width: `${pct}%`,
             backgroundColor: color,
-            borderRadius: 99,
+            borderRadius: 'var(--r-pill)',
             transition: 'width 0.5s cubic-bezier(.4,0,.2,1)',
           }}
         />
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#b0b7c3', marginTop: 3 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--font-xs)', color: 'var(--c-text-muted)', marginTop: 3 }}>
         <span>{low}</span>
         <span>{high}</span>
       </div>
@@ -93,9 +93,9 @@ function MetricBar({ label, value, low, high, color }) {
 
 function StatLine({ label, value, unit }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}>
-      <span style={{ color: '#6b7280' }}>{label}</span>
-      <span style={{ fontWeight: 600, color: '#374151' }}>{typeof value === 'number' ? value.toFixed(1) : value}{unit ? ` ${unit}` : ''}</span>
+    <div className="summary-row" style={{ fontSize: 'var(--font-sm)' }}>
+      <span className="summary-label">{label}</span>
+      <span style={{ fontWeight: 600, color: 'var(--c-text)' }}>{typeof value === 'number' ? value.toFixed(1) : value}{unit ? ` ${unit}` : ''}</span>
     </div>
   );
 }
@@ -264,49 +264,23 @@ export default function Step6Results() {
 
   if (error) {
     return (
-      <div className="no-doodle" style={{ maxWidth: 600, margin: '0 auto' }}>
-        <h2 style={{ fontSize: 22, fontWeight: 700, color: '#1f2937', marginBottom: 16 }}>No Schedules Found</h2>
-        <div
-          style={{
-            padding: 24,
-            backgroundColor: '#fef2f2',
-            border: '1px solid #fecaca',
-            borderRadius: 12,
-            marginBottom: 20,
-          }}
-        >
-          <p style={{ color: '#dc2626', fontWeight: 600, margin: 0 }}>{error}</p>
-          <p style={{ fontSize: 14, color: '#991b1b', marginTop: 12, marginBottom: 8 }}>
+      <div className="no-doodle step-container">
+        <h2 className="step-title">No Schedules Found</h2>
+        <div className="banner banner--error" style={{ padding: 'var(--sp-xl)' }}>
+          <p style={{ fontWeight: 600, margin: 0 }}>{error}</p>
+          <p style={{ fontSize: 'var(--font-sm)', marginTop: 'var(--sp-md)', marginBottom: 'var(--sp-sm)' }}>
             Try adjusting your constraints:
           </p>
-          <ul style={{ fontSize: 14, color: '#991b1b', marginLeft: 20, marginBottom: 0 }}>
+          <ul style={{ fontSize: 'var(--font-sm)', marginLeft: 20, marginBottom: 0 }}>
             <li>Remove some required courses</li>
             <li>Relax graduation requirements</li>
             <li>Allow earlier start times</li>
             <li>Reduce minimum days off</li>
           </ul>
         </div>
-        <div style={{ display: 'flex', gap: 12 }}>
-          <button
-            onClick={prevStep}
-            style={{
-              flex: 1, padding: '10px 16px', fontSize: 14, fontWeight: 600,
-              border: '1px solid #d1d5db', borderRadius: 8, backgroundColor: 'white',
-              color: '#374151', cursor: 'pointer',
-            }}
-          >
-            Back
-          </button>
-          <button
-            onClick={reset}
-            style={{
-              flex: 1, padding: '10px 16px', fontSize: 14, fontWeight: 600,
-              border: 'none', borderRadius: 8, backgroundColor: '#3b82f6',
-              color: 'white', cursor: 'pointer',
-            }}
-          >
-            Start Over
-          </button>
+        <div className="step-nav">
+          <button className="btn-back" onClick={prevStep}>Back</button>
+          <button className="btn-next" onClick={reset}>Start Over</button>
         </div>
       </div>
     );
@@ -314,16 +288,9 @@ export default function Step6Results() {
 
   if (!currentSchedule) {
     return (
-      <div className="no-doodle" style={{ maxWidth: 600, margin: '0 auto', textAlign: 'center', padding: 40 }}>
-        <p style={{ color: '#6b7280', fontSize: 16 }}>No results yet. Go back and run the solver first.</p>
-        <button
-          onClick={prevStep}
-          style={{
-            padding: '10px 24px', fontSize: 14, fontWeight: 600,
-            border: '1px solid #d1d5db', borderRadius: 8, backgroundColor: 'white',
-            color: '#374151', cursor: 'pointer',
-          }}
-        >
+      <div className="no-doodle step-container" style={{ textAlign: 'center', padding: 40 }}>
+        <p style={{ color: 'var(--c-text-light)', fontSize: 'var(--font-base)' }}>No results yet. Go back and run the solver first.</p>
+        <button onClick={prevStep} style={{ padding: '10px 24px', cursor: 'pointer' }}>
           Back
         </button>
       </div>
@@ -331,17 +298,17 @@ export default function Step6Results() {
   }
 
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+    <div className="step-container--wide">
       {/* Header row with title and navigation */}
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        marginBottom: 20, flexWrap: 'wrap', gap: 12,
+        marginBottom: 20, flexWrap: 'wrap', gap: 'var(--sp-md)',
       }}>
-        <h2 style={{ margin: 0, textDecoration: 'underline' }}>
-          Schedule Options:
+        <h2 className="step-title" style={{ margin: 0 }}>
+          Schedule Options
         </h2>
         {schedules.length > 1 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-sm)' }}>
             <button
               onClick={prevSchedule}
               style={{ padding: '4px 14px', cursor: 'pointer' }}
@@ -349,7 +316,7 @@ export default function Step6Results() {
             >
               Prev
             </button>
-            <span style={{ fontWeight: 700, fontSize: 14, minWidth: 48, textAlign: 'center' }}>
+            <span style={{ fontWeight: 700, fontSize: 'var(--font-sm)', minWidth: 48, textAlign: 'center' }}>
               {currentScheduleIndex + 1} / {schedules.length}
             </span>
             <button
@@ -363,12 +330,12 @@ export default function Step6Results() {
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 'var(--sp-xl)', flexWrap: 'wrap' }}>
         {/* Calendar */}
         <div style={{ flex: '1 1 620px', minWidth: 0 }}>
           <div className="no-doodle" style={{
-            backgroundColor: 'white', borderRadius: 12, border: '1px solid #e5e7eb',
-            padding: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+            backgroundColor: 'var(--c-surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--c-border-light)',
+            padding: 'var(--sp-md)', boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
           }}>
             <div style={{ height: 620 }}>
               <Calendar
@@ -391,13 +358,13 @@ export default function Step6Results() {
         </div>
 
         {/* Sidebar */}
-        <div style={{ flex: '0 0 300px', minWidth: 280, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ flex: '0 0 300px', minWidth: 280, display: 'flex', flexDirection: 'column', gap: 'var(--sp-lg)' }}>
           {/* Course list */}
           <div className="no-doodle" style={{
-            backgroundColor: 'white', borderRadius: 12, border: '1px solid #e5e7eb',
-            padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+            backgroundColor: 'var(--c-surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--c-border-light)',
+            padding: 'var(--sp-lg)', boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
           }}>
-            <div style={{ fontWeight: 700, fontSize: 15, color: '#1f2937', marginBottom: 12 }}>
+            <div style={{ fontWeight: 700, fontSize: 'var(--font-base)', color: 'var(--c-text)', marginBottom: 'var(--sp-md)' }}>
               Courses ({currentSchedule.sections.length})
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -425,7 +392,7 @@ export default function Step6Results() {
                         border: isMarked ? '1.5px solid #10b981' : '1.5px solid #d1d5db',
                         backgroundColor: isMarked ? '#ecfdf5' : 'white',
                         color: isMarked ? '#10b981' : '#9ca3af',
-                        cursor: 'pointer', fontSize: 13, fontWeight: 700,
+                        cursor: 'pointer', fontSize: 'var(--font-sm)', fontWeight: 700,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         padding: 0, lineHeight: 1,
                         transition: 'all 0.15s ease',
@@ -447,17 +414,17 @@ export default function Step6Results() {
                     >
                       {isMarked ? '\u21A9' : '\u2715'}
                     </button>
-                    <div style={{ fontWeight: 700, fontSize: 13, color: isMarked ? '#9ca3af' : COLORS[idx % COLORS.length], textDecoration: isMarked ? 'line-through' : 'none' }}>
+                    <div style={{ fontWeight: 700, fontSize: 'var(--font-sm)', color: isMarked ? 'var(--c-text-muted)' : COLORS[idx % COLORS.length], textDecoration: isMarked ? 'line-through' : 'none' }}>
                       {section.course_id}
                     </div>
-                    <div style={{ fontSize: 12, color: isMarked ? '#9ca3af' : '#374151', marginTop: 3, lineHeight: 1.3 }}>
+                    <div style={{ fontSize: 'var(--font-xs)', color: isMarked ? 'var(--c-text-muted)' : 'var(--c-text)', marginTop: 3, lineHeight: 1.3 }}>
                       {section.title}
                     </div>
-                    <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>
+                    <div style={{ fontSize: 'var(--font-xs)', color: 'var(--c-text-light)', marginTop: 2 }}>
                       {section.instructor_name}
                     </div>
                     {section.linked_sections && section.linked_sections.length > 0 && (
-                      <div style={{ marginTop: 4, fontSize: 11, color: '#6b7280' }}>
+                      <div style={{ marginTop: 4, fontSize: 'var(--font-xs)', color: 'var(--c-text-light)' }}>
                         <span style={{
                           display: 'inline-block', fontSize: 9, fontWeight: 700,
                           backgroundColor: '#dbeafe', color: '#1d4ed8',
@@ -476,7 +443,7 @@ export default function Step6Results() {
                               {ls.component || 'LEC'}
                             </span>
                             {ls.schedule && ls.schedule.days && ls.schedule.days.length > 0 && (
-                              <span style={{ marginLeft: 3, fontSize: 10, color: '#9ca3af' }}>
+                              <span style={{ marginLeft: 3, fontSize: 10, color: 'var(--c-text-muted)' }}>
                                 {ls.schedule.days.join('')} {ls.schedule.start_time}–{ls.schedule.end_time}
                               </span>
                             )}
@@ -491,8 +458,8 @@ export default function Step6Results() {
                             key={attr}
                             style={{
                               fontSize: 10, fontWeight: 600,
-                              backgroundColor: 'rgba(0,0,0,0.06)', color: '#6b7280',
-                              padding: '1px 6px', borderRadius: 99,
+                              backgroundColor: 'rgba(0,0,0,0.06)', color: 'var(--c-text-light)',
+                              padding: '1px 6px', borderRadius: 'var(--r-pill)',
                             }}
                           >
                             {attr}
@@ -509,10 +476,10 @@ export default function Step6Results() {
           {/* Metrics */}
           {barMetrics.length > 0 && (
             <div className="no-doodle" style={{
-              backgroundColor: 'white', borderRadius: 12, border: '1px solid #e5e7eb',
-              padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+              backgroundColor: 'var(--c-surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--c-border-light)',
+              padding: 'var(--sp-lg)', boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
             }}>
-              <div style={{ fontWeight: 700, fontSize: 15, color: '#1f2937', marginBottom: 14 }}>
+              <div style={{ fontWeight: 700, fontSize: 'var(--font-base)', color: 'var(--c-text)', marginBottom: 14 }}>
                 Schedule Metrics
               </div>
               {barMetrics.map(({ key, value, label, low, high, color }) => (
@@ -543,27 +510,25 @@ export default function Step6Results() {
 
       {/* Reroll banner */}
       {markedForRemoval.size > 0 && (
-        <div className="no-doodle" style={{
+        <div className="no-doodle banner banner--warning" style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          gap: 16, marginTop: 20, padding: '14px 24px',
-          backgroundColor: '#fffbeb', border: '1px solid #fde68a',
-          borderRadius: 12,
+          gap: 'var(--sp-lg)', marginTop: 20,
         }}>
-          <span style={{ fontSize: 14, color: '#92400e', fontWeight: 500 }}>
+          <span style={{ fontSize: 'var(--font-sm)', fontWeight: 500 }}>
             {markedForRemoval.size} course{markedForRemoval.size > 1 ? 's' : ''} marked for replacement
           </span>
           <button
             onClick={handleReroll}
             disabled={isRerolling}
             style={{
-              padding: '8px 24px', fontSize: 14, fontWeight: 700,
-              border: 'none', borderRadius: 8,
-              backgroundColor: isRerolling ? '#9ca3af' : '#f59e0b',
+              padding: '8px 24px', fontSize: 'var(--font-sm)', fontWeight: 700,
+              border: 'none', borderRadius: 'var(--r-md)',
+              backgroundColor: isRerolling ? 'var(--c-text-muted)' : 'var(--c-warning)',
               color: 'white', cursor: isRerolling ? 'default' : 'pointer',
               transition: 'background-color 0.15s',
             }}
             onMouseEnter={(e) => { if (!isRerolling) e.currentTarget.style.backgroundColor = '#d97706'; }}
-            onMouseLeave={(e) => { if (!isRerolling) e.currentTarget.style.backgroundColor = '#f59e0b'; }}
+            onMouseLeave={(e) => { if (!isRerolling) e.currentTarget.style.backgroundColor = ''; }}
           >
             {isRerolling ? 'Rerolling...' : 'Reroll'}
           </button>
@@ -571,9 +536,9 @@ export default function Step6Results() {
             onClick={() => setMarkedForRemoval(new Set())}
             disabled={isRerolling}
             style={{
-              padding: '8px 16px', fontSize: 13, fontWeight: 600,
-              border: '1px solid #d1d5db', borderRadius: 8,
-              backgroundColor: 'white', color: '#6b7280',
+              padding: '8px 16px', fontSize: 'var(--font-sm)', fontWeight: 600,
+              border: '1px solid var(--c-border)', borderRadius: 'var(--r-md)',
+              backgroundColor: 'var(--c-surface)', color: 'var(--c-text-light)',
               cursor: 'pointer',
             }}
           >
@@ -584,12 +549,8 @@ export default function Step6Results() {
 
       {/* Reroll error (inline, doesn't replace the schedule view) */}
       {rerollError && (
-        <div className="no-doodle" style={{
-          marginTop: 16, padding: '12px 20px',
-          backgroundColor: '#fef2f2', border: '1px solid #fecaca',
-          borderRadius: 10, textAlign: 'center',
-        }}>
-          <span style={{ fontSize: 13, color: '#dc2626', fontWeight: 500 }}>{rerollError}</span>
+        <div className="no-doodle banner banner--error" style={{ marginTop: 'var(--sp-lg)', textAlign: 'center' }}>
+          <span style={{ fontWeight: 500 }}>{rerollError}</span>
         </div>
       )}
 

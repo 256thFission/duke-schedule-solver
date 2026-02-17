@@ -52,7 +52,7 @@ const REQUIREMENT_NAMES_PRATT_2025 = {
 const PRATT_CODES_PRE2025 = new Set(['ALP', 'CZ', 'SS', 'FL']);
 const PRATT_CODES_2025 = new Set(['CE', 'HI', 'IJ', 'SB', 'LG']);
 
-function ProgressBar({ percent, color = '#3b82f6', bg = '#e5e7eb', height = 8 }) {
+function ProgressBar({ percent, color = 'var(--c-primary)', bg = 'var(--c-border-light)', height = 8 }) {
   return (
     <div style={{ height, backgroundColor: bg, borderRadius: 4, overflow: 'hidden' }}>
       <div
@@ -68,7 +68,7 @@ function ProgressBar({ percent, color = '#3b82f6', bg = '#e5e7eb', height = 8 })
 }
 
 function RequirementRow({ req, nameMap }) {
-  const color = req.is_complete ? '#10b981' : req.completed > 0 ? '#f59e0b' : '#d1d5db';
+  const color = req.is_complete ? 'var(--c-success)' : req.completed > 0 ? 'var(--c-warning)' : 'var(--c-border)';
   return (
     <div
       style={{
@@ -89,18 +89,18 @@ function RequirementRow({ req, nameMap }) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontSize: 12,
+          fontSize: 'var(--font-xs)',
           flexShrink: 0,
         }}
       >
         {req.is_complete ? '✓' : ''}
       </span>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 3 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--font-sm)', marginBottom: 3 }}>
           <span style={{ fontWeight: 600 }}>
             {req.code} — {(nameMap || {})[req.code] || req.name}
           </span>
-          <span style={{ color: '#6b7280', flexShrink: 0 }}>
+          <span style={{ color: 'var(--c-text-light)', flexShrink: 0 }}>
             {req.completed}/{req.required}
           </span>
         </div>
@@ -111,7 +111,7 @@ function RequirementRow({ req, nameMap }) {
           height={6}
         />
         {req.courses && req.courses.length > 0 && (
-          <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
+          <div style={{ fontSize: 'var(--font-xs)', color: 'var(--c-text-muted)', marginTop: 2 }}>
             {req.courses.join(', ')}
           </div>
         )}
@@ -143,17 +143,17 @@ function CollapsibleSection({ title, count, color, bgColor, borderColor, default
           backgroundColor: bgColor,
           border: 'none',
           cursor: 'pointer',
-          fontSize: 14,
+          fontSize: 'var(--font-sm)',
           fontWeight: 600,
           color,
           textAlign: 'left',
         }}
       >
         <span>{title} ({count})</span>
-        <span style={{ fontSize: 12, opacity: 0.7 }}>{open ? '▲ Hide' : '▼ Show'}</span>
+        <span style={{ fontSize: 'var(--font-xs)', opacity: 0.7 }}>{open ? '▲ Hide' : '▼ Show'}</span>
       </button>
       {open && (
-        <div style={{ padding: '10px 14px', backgroundColor: 'white', maxHeight: 260, overflowY: 'auto' }}>
+        <div style={{ padding: '10px 14px', backgroundColor: 'var(--c-surface)', maxHeight: 260, overflowY: 'auto' }}>
           {children}
         </div>
       )}
@@ -268,9 +268,9 @@ export default function Step1Upload() {
   const incompleteReqs = allReqsList.filter((r) => !r.is_complete);
 
   return (
-    <div style={{ maxWidth: 660, margin: '0 auto' }}>
-      <h2>Upload Your Transcript</h2>
-      <p>Upload your  (unofficial) Duke transcript PDF to magically import your completed courses.</p>
+    <div className="step-container">
+      <h2 className="step-title">Upload Your Transcript</h2>
+      <p className="step-subtitle">Upload your (unofficial) Duke transcript PDF to import your completed courses.</p>
 
       <fieldset>
         <legend>Upload</legend>
@@ -283,19 +283,19 @@ export default function Step1Upload() {
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               style={{
-                border: isDragging ? '3px dashed #3b82f6' : '2px dashed #9ca3af',
-                borderRadius: 8,
+                border: isDragging ? '3px dashed var(--c-primary)' : '2px dashed var(--c-text-muted)',
+                borderRadius: 'var(--r-md)',
                 padding: '40px 20px',
                 textAlign: 'center',
-                backgroundColor: isDragging ? '#eff6ff' : '#f9fafb',
+                backgroundColor: isDragging ? 'var(--c-primary-light)' : 'var(--c-surface-dim)',
                 cursor: 'pointer',
-                marginBottom: 16,
+                marginBottom: 'var(--sp-lg)',
               }}
             >
-              <p style={{ fontSize: 18, marginBottom: 8, color: '#9ca3af'}}>
+              <p style={{ fontSize: 'var(--font-lg)', marginBottom: 'var(--sp-sm)', color: 'var(--c-text-muted)' }}>
                 {isDragging ? 'Drop your transcript here' : 'Drag & drop your transcript PDF'}
               </p>
-              <p style={{ fontSize: 14, color: '#9ca3af', marginBottom: 16 }}>or</p>
+              <p style={{ fontSize: 'var(--font-sm)', color: 'var(--c-text-muted)', marginBottom: 'var(--sp-lg)' }}>or</p>
               <label htmlFor="file-upload">
                 <button
                   type="button"
@@ -315,16 +315,7 @@ export default function Step1Upload() {
             </div>
 
             {error && (
-              <div
-                style={{
-                  padding: 12,
-                  backgroundColor: '#fef2f2',
-                  border: '1px solid #fecaca',
-                  borderRadius: 6,
-                  color: '#dc2626',
-                  marginBottom: 16,
-                }}
-              >
+              <div className="banner banner--error" style={{ marginBottom: 'var(--sp-lg)' }}>
                 {error}
               </div>
             )}
@@ -337,27 +328,18 @@ export default function Step1Upload() {
 
         {/* ── Results ── */}
         {uploadResult && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-lg)' }}>
 
             {/* ── Summary Banner ── */}
-            <div
-              style={{
-                padding: '16px 20px',
-                backgroundColor: '#f0fdf4',
-                border: '2px solid #86efac',
-                borderRadius: 8,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: 12,
-              }}
-            >
+            <div className="banner banner--success" style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              flexWrap: 'wrap', gap: 'var(--sp-md)',
+            }}>
               <div>
-                <h3 style={{ color: '#059669', margin: '0 0 4px 0', fontSize: 18 }}>
+                <h3 style={{ color: '#059669', margin: '0 0 4px 0', fontSize: 'var(--font-lg)' }}>
                   Transcript Processed
                 </h3>
-                <span style={{ fontSize: 14, color: '#047857' }}>
+                <span style={{ fontSize: 'var(--font-sm)' }}>
                   <strong>
                     {uploadResult.class_year
                       ? uploadResult.class_year.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())
@@ -366,7 +348,7 @@ export default function Step1Upload() {
                   {' | '}
                   <strong>{uploadResult.matched}</strong> of {uploadResult.total_extracted} courses matched
                   {uploadResult.unmatched > 0 && (
-                    <span style={{ color: '#b45309' }}>
+                    <span style={{ color: 'var(--c-warning-text)' }}>
                       {' | '}{uploadResult.unmatched} unmatched
                     </span>
                   )}
@@ -379,25 +361,13 @@ export default function Step1Upload() {
               title="Matched Courses"
               count={uploadResult.matched}
               color="#047857"
-              bgColor="#f0fdf4"
+              bgColor="var(--c-success-light)"
               borderColor="#bbf7d0"
               defaultOpen={true}
             >
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {uploadResult.completed_courses.map((c) => (
-                  <span
-                    key={c}
-                    style={{
-                      padding: '3px 10px',
-                      backgroundColor: '#ecfdf5',
-                      border: '1px solid #a7f3d0',
-                      borderRadius: 4,
-                      fontSize: 12,
-                      fontFamily: 'monospace',
-                    }}
-                  >
-                    {c}
-                  </span>
+                  <span key={c} className="chip chip--green">{c}</span>
                 ))}
               </div>
             </CollapsibleSection>
@@ -408,29 +378,17 @@ export default function Step1Upload() {
                 title="Unmatched Courses"
                 count={uploadResult.unmatched_courses.length}
                 color="#b45309"
-                bgColor="#fffbeb"
-                borderColor="#fde68a"
+                bgColor="var(--c-warning-light)"
+                borderColor="var(--c-warning-border)"
                 defaultOpen={true}
               >
-                <p style={{ fontSize: 12, color: '#92400e', margin: '0 0 8px 0' }}>
+                <p style={{ fontSize: 'var(--font-xs)', color: 'var(--c-warning-text)', margin: '0 0 8px 0' }}>
                   These courses were found on your transcript but could not be matched to the current
                   semester's catalog. They may be old courses, special topics, or transfer credits.
                 </p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                   {uploadResult.unmatched_courses.map((c) => (
-                    <span
-                      key={c}
-                      style={{
-                        padding: '3px 10px',
-                        backgroundColor: '#fef9c3',
-                        border: '1px solid #fde68a',
-                        borderRadius: 4,
-                        fontSize: 12,
-                        fontFamily: 'monospace',
-                      }}
-                    >
-                      {c}
-                    </span>
+                    <span key={c} className="chip chip--yellow">{c}</span>
                   ))}
                 </div>
               </CollapsibleSection>
@@ -444,9 +402,9 @@ export default function Step1Upload() {
                   <CollapsibleSection
                     title="Still Needed"
                     count={incompleteReqs.length}
-                    color="#dc2626"
-                    bgColor="#fef2f2"
-                    borderColor="#fecaca"
+                    color="var(--c-danger)"
+                    bgColor="var(--c-danger-light)"
+                    borderColor="var(--c-danger-border)"
                     defaultOpen={true}
                   >
                     {incompleteReqs.map((r) => (
@@ -458,26 +416,17 @@ export default function Step1Upload() {
             )}
 
             {/* ── Re-upload + Continue ── */}
-            <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
+            <div className="step-nav" style={{ marginTop: 'var(--sp-xs)' }}>
               <button
+                className="btn-back"
                 onClick={() => {
                   setUploadResult(null);
                   setError(null);
                 }}
-                style={{ flex: 1 }}
               >
                 Re-upload
               </button>
-              <button
-                onClick={nextStep}
-                style={{
-                  flex: 2,
-                  backgroundColor: '#3b82f6',
-                  color: 'white',
-                  fontWeight: 600,
-                  fontSize: 16,
-                }}
-              >
+              <button className="btn-next" onClick={nextStep}>
                 Continue
               </button>
             </div>
