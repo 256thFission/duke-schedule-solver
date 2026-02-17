@@ -54,7 +54,7 @@ const PRATT_CODES_2025 = new Set(['CE', 'HI', 'IJ', 'SB', 'LG']);
 function RequirementProgressCard({ req, isSelected, onToggle, metadataMap, style }) {
   const meta = metadataMap[req.code] || { label: req.name };
   const progressColor =
-    req.is_complete ? '#10b981' : req.completed > 0 ? '#f59e0b' : '#6b7280';
+    req.is_complete ? 'var(--c-success)' : req.completed > 0 ? 'var(--c-warning)' : 'var(--c-text-light)';
 
   return (
     <button
@@ -62,13 +62,13 @@ function RequirementProgressCard({ req, isSelected, onToggle, metadataMap, style
       style={{
         width: '100%',
         minWidth: 0,
-        padding: 12,
+        padding: 'var(--sp-md)',
         textAlign: 'left',
-        border: isSelected ? '3px solid #3b82f6' : '2px solid #d1d5db',
-        backgroundColor: isSelected ? '#eff6ff' : req.is_complete ? '#f9fafb' : 'white',
-        borderRadius: 8,
+        border: isSelected ? '3px solid var(--c-primary)' : '2px solid var(--c-border)',
+        backgroundColor: isSelected ? 'var(--c-primary-light)' : req.is_complete ? 'var(--c-surface-dim)' : 'var(--c-surface)',
+        borderRadius: 'var(--r-md)',
         cursor: 'pointer',
-        transition: 'all 0.2s',
+        transition: 'all 0.15s',
         opacity: req.is_complete && !isSelected ? 0.6 : 1,
         boxSizing: 'border-box',
         ...style,
@@ -79,7 +79,7 @@ function RequirementProgressCard({ req, isSelected, onToggle, metadataMap, style
           style={{
             fontWeight: 'bold',
             marginBottom: 4,
-            fontSize: 14,
+            fontSize: 'var(--font-sm)',
             minWidth: 0,
             overflowWrap: 'anywhere',
             display: '-webkit-box',
@@ -91,7 +91,7 @@ function RequirementProgressCard({ req, isSelected, onToggle, metadataMap, style
           {isSelected && '+ '}[{req.code}] {meta.label}
         </div>
         {req.is_complete && (
-          <span style={{ fontSize: 16, color: '#10b981', flexShrink: 0, marginLeft: 8 }}>Done</span>
+          <span style={{ fontSize: 'var(--font-base)', color: 'var(--c-success)', flexShrink: 0, marginLeft: 8 }}>Done</span>
         )}
       </div>
       <div style={{ marginTop: 6 }}>
@@ -99,7 +99,7 @@ function RequirementProgressCard({ req, isSelected, onToggle, metadataMap, style
           style={{
             display: 'flex',
             justifyContent: 'space-between',
-            fontSize: 12,
+            fontSize: 'var(--font-xs)',
             color: progressColor,
             fontWeight: 600,
             marginBottom: 4,
@@ -108,7 +108,7 @@ function RequirementProgressCard({ req, isSelected, onToggle, metadataMap, style
           <span>{req.completed}/{req.required} completed</span>
           <span>{Math.round(req.progress_percent)}%</span>
         </div>
-        <div style={{ height: 6, backgroundColor: '#e5e7eb', borderRadius: 3, overflow: 'hidden' }}>
+        <div style={{ height: 6, backgroundColor: 'var(--c-border-light)', borderRadius: 3, overflow: 'hidden' }}>
           <div
             style={{
               height: '100%',
@@ -218,28 +218,20 @@ export default function Step3Requirements() {
     : [];
 
   return (
-    <div style={{ maxWidth: 800, margin: '0 auto' }}>
-      <h2>Graduation Requirements</h2>
-      <p>
+    <div className="step-container--medium">
+      <h2 className="step-title">Graduation Requirements</h2>
+      <p className="step-subtitle">
         What graduation requirements do you want the solver to find?
         hint: <a href="https://trinity.duke.edu/undergraduate/academic-policies/graduation-requirements" target="_blank" rel="noopener noreferrer">here</a>
       </p>
 
       {/* Pratt info banner */}
       {isPratt && (
-        <div
-          style={{
-            padding: '12px 16px',
-            backgroundColor: '#fefce8',
-            border: '2px solid #fde68a',
-            borderRadius: 8,
-            marginBottom: 20,
-          }}
-        >
-          <div style={{ fontWeight: 700, fontSize: 14, color: '#92400e', marginBottom: 4 }}>
+        <div className="banner banner--warning">
+          <div style={{ fontWeight: 700, fontSize: 'var(--font-sm)', marginBottom: 4 }}>
             Pratt School of Engineering
           </div>
-          <p style={{ fontSize: 13, color: '#78350f', margin: 0 }}>
+          <p style={{ fontSize: 'var(--font-sm)', color: '#78350f', margin: 0 }}>
             {is2025
               ? 'Pratt requires 5 courses from Liberal Arts codes (CE, HI, IJ, SB, LG). Must cover at least 4 of the 5 categories. QC and NW are excluded.'
               : 'Pratt requires 5 courses from SS/H codes (ALP, CZ, SS, FL). Depth requirement: at least 2 courses in one subject area.'}
@@ -249,29 +241,20 @@ export default function Step3Requirements() {
 
       {/* Auto-select banner */}
       {autoApplied && (
-        <div
-          style={{
-            padding: '10px 16px',
-            backgroundColor: '#eff6ff',
-            border: '2px solid #93c5fd',
-            borderRadius: 8,
-            marginBottom: 20,
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}
-        >
-          <span style={{ fontSize: 14, color: '#1e40af' }}>
+        <div className="banner banner--info" style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        }}>
+          <span style={{ fontSize: 'var(--font-sm)' }}>
             Auto-selected <strong>{config.requirements.attributes.length}</strong> requirements based on your transcript.
           </span>
           <button
             onClick={handleUndoAutoSelect}
             style={{
               padding: '4px 12px',
-              fontSize: 13,
-              border: '1px solid #93c5fd',
-              backgroundColor: 'white',
-              borderRadius: 4,
+              fontSize: 'var(--font-sm)',
+              border: '1px solid var(--c-primary-border)',
+              backgroundColor: 'var(--c-surface)',
+              borderRadius: 'var(--r-sm)',
               cursor: 'pointer',
               color: '#1e40af',
             }}
@@ -287,40 +270,31 @@ export default function Step3Requirements() {
 
         {config.requirements.attributes.length > 0 ? (
           <>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span style={{ fontSize: 14 }}>At least</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-md)' }}>
+              <span style={{ fontSize: 'var(--font-sm)' }}>At least</span>
               <input
                 type="number"
                 min="0"
                 max={Math.min(4, config.num_courses)}
                 value={config.requirements.min_count}
                 onChange={handleMinCountChange}
-                style={{ width: 64, fontSize: 18, textAlign: 'center' }}
+                style={{ width: 64, fontSize: 'var(--font-lg)', textAlign: 'center' }}
               />
-              <span style={{ fontSize: 14 }}>
+              <span style={{ fontSize: 'var(--font-sm)' }}>
                 of your {config.num_courses} courses should have one of these attributes
               </span>
             </div>
-            <div
-              style={{
-                marginTop: 12,
-                padding: 10,
-                backgroundColor: '#f0fdf4',
-                border: '1px solid #86efac',
-                borderRadius: 6,
-                fontSize: 13,
-              }}
-            >
+            <div className="banner banner--success" style={{ marginTop: 'var(--sp-md)', marginBottom: 0 }}>
               {config.requirements.attributes.map((c) => `[${c}]`).join(' ')}
               {config.requirements.min_count > 0 && (
-                <span style={{ color: '#047857' }}>
+                <span>
                   {' '}|  {config.requirements.min_count} course(s) will have these codes
                 </span>
               )}
             </div>
           </>
         ) : (
-          <p style={{ color: '#6b7280', fontSize: 14 }}>
+          <p style={{ color: 'var(--c-text-light)', fontSize: 'var(--font-sm)' }}>
             No attributes selected yet. Pick some below.
           </p>
         )}
@@ -328,24 +302,16 @@ export default function Step3Requirements() {
 
       {/* Transcript-aware progress cards */}
       {graduationRequirements && (
-        <fieldset style={{ marginTop: 20, marginBottom: 24, minWidth: 0 }}>
+        <fieldset className="field-gap" style={{ marginBottom: 'var(--sp-xl)', minWidth: 0 }}>
           <legend>Your Progress</legend>
 
           {/* 2025+ curriculum: Liberal Arts Distribution */}
           {is2025 && liberalArtsDistribution.length > 0 && (
             <>
-              <h4 style={{ marginTop: 0, fontSize: 14, color: '#6b7280' }}>
+              <h4 style={{ marginTop: 0, fontSize: 'var(--font-sm)', color: 'var(--c-text-light)' }}>
                 {isPratt ? 'Liberal Arts Requirements (5 courses, 4+ categories)' : 'Liberal Arts Distribution (2 courses each)'}
               </h4>
-              <div
-                style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: 12,
-                  marginBottom: 20,
-                  alignItems: 'stretch',
-                }}
-              >
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--sp-md)', marginBottom: 20, alignItems: 'stretch' }}>
                 {liberalArtsDistribution.map((req) => (
                   <RequirementProgressCard
                     key={req.code}
@@ -363,18 +329,10 @@ export default function Step3Requirements() {
           {/* Pre-2025 curriculum: Areas of Knowledge */}
           {!is2025 && areasOfKnowledge.length > 0 && (
             <>
-              <h4 style={{ marginTop: 0, fontSize: 14, color: '#6b7280' }}>
+              <h4 style={{ marginTop: 0, fontSize: 'var(--font-sm)', color: 'var(--c-text-light)' }}>
                 Areas of Knowledge
               </h4>
-              <div
-                style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: 12,
-                  marginBottom: 20,
-                  alignItems: 'stretch',
-                }}
-              >
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--sp-md)', marginBottom: 20, alignItems: 'stretch' }}>
                 {areasOfKnowledge.map((req) => (
                   <RequirementProgressCard
                     key={req.code}
@@ -392,17 +350,10 @@ export default function Step3Requirements() {
           {/* Pre-2025 curriculum: Modes of Inquiry */}
           {!is2025 && modesOfInquiry.length > 0 && (
             <>
-              <h4 style={{ marginTop: 16, fontSize: 14, color: '#6b7280' }}>
+              <h4 style={{ marginTop: 'var(--sp-lg)', fontSize: 'var(--font-sm)', color: 'var(--c-text-light)' }}>
                 Modes of Inquiry
               </h4>
-              <div
-                style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: 12,
-                  alignItems: 'stretch',
-                }}
-              >
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--sp-md)', alignItems: 'stretch' }}>
                 {modesOfInquiry.map((req) => (
                   <RequirementProgressCard
                     key={req.code}
@@ -421,50 +372,34 @@ export default function Step3Requirements() {
 
       {/* Manual fallback when no transcript */}
       {!graduationRequirements && (
-        <fieldset style={{ marginTop: 20 }}>
+        <fieldset className="field-gap">
           <legend>Select Attributes</legend>
-          <p style={{ fontSize: 14, color: '#6b7280', marginBottom: 16 }}>
+          <p className="field-hint">
             No transcript uploaded. Manually select any gen-ed attributes you want to prioritize.
           </p>
-          <div
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 12,
-              marginBottom: 20,
-            }}
-          >
-            {Object.entries(REQUIREMENT_METADATA).map(([code, meta]) => (
-              <button
-                key={code}
-                onClick={() => toggleAttribute(code)}
-                style={{
-                  flex: '1 1 160px',
-                  padding: '12px 16px',
-                  textAlign: 'left',
-                  border: isSelected(code) ? '3px solid #3b82f6' : '2px solid #d1d5db',
-                  backgroundColor: isSelected(code) ? '#eff6ff' : 'white',
-                  borderRadius: 8,
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                }}
-              >
-                <div style={{ fontWeight: 'bold', marginBottom: 4 }}>
-                  {isSelected(code) && '+ '}[{code}] {meta.label}
-                </div>
-              </button>
-            ))}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--sp-md)', marginBottom: 20 }}>
+            {Object.entries(REQUIREMENT_METADATA).map(([code, meta]) => {
+              const active = isSelected(code);
+              return (
+                <button
+                  key={code}
+                  onClick={() => toggleAttribute(code)}
+                  className={`select-card ${active ? 'select-card--active' : ''}`}
+                  style={{ flex: '1 1 160px' }}
+                >
+                  <div style={{ fontWeight: 'bold', marginBottom: 4 }}>
+                    {active && '+ '}[{code}] {meta.label}
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </fieldset>
       )}
 
-      <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
-        <button onClick={prevStep} style={{ flex: 1 }}>
-          Back
-        </button>
-        <button onClick={nextStep} style={{ flex: 2 }}>
-          Next: Preferences
-        </button>
+      <div className="step-nav">
+        <button className="btn-back" onClick={prevStep}>Back</button>
+        <button className="btn-next" onClick={nextStep}>Next: Preferences</button>
       </div>
     </div>
   );

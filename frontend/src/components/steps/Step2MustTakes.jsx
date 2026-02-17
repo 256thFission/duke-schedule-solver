@@ -58,42 +58,45 @@ export default function Step2MustTakes() {
   const allPinned = mustTakeCount === config.num_courses;
 
   return (
-    <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-      <h2>Course Setup</h2>
+    <div className="step-container">
+      <h2 className="step-title">Course Setup</h2>
 
       {/* Number of Courses */}
       <fieldset>
         <legend>How many courses this semester?</legend>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          {[3, 4, 5, 6].map((n) => (
-            <button
-              key={n}
-              onClick={() => updateConfig({ num_courses: n })}
-              style={{
-                width: 56,
-                height: 56,
-                fontSize: 22,
-                fontWeight: 700,
-                border: config.num_courses === n ? '3px solid #3b82f6' : '2px solid #d1d5db',
-                backgroundColor: config.num_courses === n ? '#eff6ff' : 'white',
-                borderRadius: 8,
-                cursor: 'pointer',
-              }}
-            >
-              {n}
-            </button>
-          ))}
+        <div style={{ display: 'flex', gap: 'var(--sp-md)', alignItems: 'center' }}>
+          {[3, 4, 5, 6].map((n) => {
+            const active = config.num_courses === n;
+            return (
+              <button
+                key={n}
+                onClick={() => updateConfig({ num_courses: n })}
+                style={{
+                  width: 52,
+                  height: 52,
+                  fontSize: 'var(--font-xl)',
+                  fontWeight: 700,
+                  border: active ? '3px solid var(--c-primary)' : '2px solid var(--c-border)',
+                  backgroundColor: active ? 'var(--c-primary-light)' : 'var(--c-surface)',
+                  borderRadius: 'var(--r-md)',
+                  cursor: 'pointer',
+                }}
+              >
+                {n}
+              </button>
+            );
+          })}
         </div>
-        <p style={{ fontSize: 13, color: '#6b7280', marginTop: 6 }}>
+        <p className="field-hint">
           If you take more than 6 you should probably plan with a human advisor...
         </p>
       </fieldset>
 
       {/* Search */}
-      <fieldset style={{ marginTop: 24 }}>
+      <fieldset className="field-gap">
         <legend>Pin Must-Take Courses</legend>
-        <p style={{ fontSize: 13, color: '#6b7280', marginTop: 4, marginBottom: 12 }}>
-        Pin your degree reqs and favorite electives here. Or leave it empty ig.
+        <p className="field-hint">
+          Pin your degree reqs and favorite electives here. Or leave it empty ig.
         </p>
 
         <label htmlFor="course-search">Search:</label>
@@ -105,21 +108,21 @@ export default function Step2MustTakes() {
           onChange={(e) => setSearchQuery(e.target.value)}
         />
         {searchQuery.length === 1 && (
-          <p style={{ fontSize: 12, color: '#9ca3af', margin: '4px 0 0' }}>
+          <p style={{ fontSize: 'var(--font-xs)', color: 'var(--c-text-muted)', margin: '4px 0 0' }}>
             Type at least 2 characters to search...
           </p>
         )}
 
-        {isSearching && <p style={{ fontSize: 14, color: '#6b7280' }}>Searching...</p>}
+        {isSearching && <p style={{ fontSize: 'var(--font-sm)', color: 'var(--c-text-light)' }}>Searching...</p>}
 
         {searchResults.length > 0 && (
           <div
             style={{
-              border: '2px solid #e5e7eb',
-              borderRadius: 6,
+              border: '2px solid var(--c-border-light)',
+              borderRadius: 'var(--r-sm)',
               maxHeight: 200,
               overflowY: 'auto',
-              marginTop: 8,
+              marginTop: 'var(--sp-sm)',
             }}
           >
             {searchResults.map((courseId) => (
@@ -132,12 +135,12 @@ export default function Step2MustTakes() {
                   textAlign: 'left',
                   padding: '10px 12px',
                   border: 'none',
-                  borderBottom: '1px solid #e5e7eb',
-                  background: 'white',
+                  borderBottom: '1px solid var(--c-border-light)',
+                  background: 'var(--c-surface)',
                   cursor: 'pointer',
                 }}
-                onMouseOver={(e) => (e.target.style.background = '#f3f4f6')}
-                onMouseOut={(e) => (e.target.style.background = 'white')}
+                onMouseOver={(e) => (e.target.style.background = 'var(--c-surface-dim)')}
+                onMouseOut={(e) => (e.target.style.background = 'var(--c-surface)')}
               >
                 {courseId}
               </button>
@@ -147,44 +150,25 @@ export default function Step2MustTakes() {
       </fieldset>
 
       {/* Selected Courses */}
-      <fieldset style={{ marginTop: 20 }}>
+      <fieldset className="field-gap">
         <legend>
           Pinned ({mustTakeCount} of {config.num_courses} slots)
         </legend>
 
         {mustTakeCount === 0 && (
-          <p style={{ color: '#6b7280', fontSize: 14 }}>
+          <p style={{ color: 'var(--c-text-light)', fontSize: 'var(--font-sm)' }}>
             No courses pinned. I will choose all {config.num_courses} courses for you.
           </p>
         )}
 
         {mustTakeCount > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--sp-sm)' }}>
             {config.required_courses.map((courseId) => (
-              <div
-                key={courseId}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '6px 12px',
-                  backgroundColor: '#dbeafe',
-                  border: '2px solid #3b82f6',
-                  borderRadius: 16,
-                  fontSize: 14,
-                }}
-              >
+              <div key={courseId} className="chip chip--blue">
                 <span>{courseId}</span>
                 <button
                   onClick={() => removeRequiredCourse(courseId)}
-                  style={{
-                    border: 'none',
-                    background: 'transparent',
-                    cursor: 'pointer',
-                    padding: 0,
-                    fontSize: 16,
-                    lineHeight: 1,
-                  }}
+                  className="chip__remove"
                   title="Remove"
                 >
                   x
@@ -196,50 +180,21 @@ export default function Step2MustTakes() {
 
         {/* Validation warnings */}
         {overPinned && (
-          <div
-            style={{
-              marginTop: 12,
-              padding: 10,
-              backgroundColor: '#fef2f2',
-              border: '1px solid #fecaca',
-              borderRadius: 6,
-              fontSize: 13,
-              color: '#dc2626',
-            }}
-          >
+          <div className="banner banner--error" style={{ marginTop: 'var(--sp-md)' }}>
             You've pinned {mustTakeCount} courses but are only taking {config.num_courses}.
             Remove some must-takes or increase your course count.
           </div>
         )}
         {allPinned && !overPinned && (
-          <div
-            style={{
-              marginTop: 12,
-              padding: 10,
-              backgroundColor: '#fffbeb',
-              border: '1px solid #fde68a',
-              borderRadius: 6,
-              fontSize: 13,
-              color: '#92400e',
-            }}
-          >
+          <div className="banner banner--warning" style={{ marginTop: 'var(--sp-md)' }}>
             All {config.num_courses} slots are pinned. The solver has no flexibility to optimize.
           </div>
         )}
       </fieldset>
 
-      <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
-        <button onClick={prevStep} style={{ flex: 1 }}>
-          Back
-        </button>
-        <button
-          onClick={nextStep}
-          disabled={overPinned}
-          style={{
-            flex: 2,
-            opacity: overPinned ? 0.5 : 1,
-          }}
-        >
+      <div className="step-nav">
+        <button className="btn-back" onClick={prevStep}>Back</button>
+        <button className="btn-next" onClick={nextStep} disabled={overPinned}>
           Next: Gen Eds
         </button>
       </div>
