@@ -63,6 +63,42 @@ def clean_course_code(text: str) -> tuple[str, str] | None:
     return (subject, number)
 
 
+def extract_course_codes_from_line(line: str) -> List[tuple[str, str]]:
+    """
+    Extract all valid course codes from a single transcript line.
+
+    Duke transcript PDF text extraction can collapse two visual columns into one
+    line. In that case, multiple course codes may appear in one line and we need
+    to capture all of them.
+
+    Args:
+        line: Raw transcript line
+
+    Returns:
+        List of (subject, number) tuples
+    """
+    # Metadata row frequently appears with TOP courses; never a course listing.
+    if 'Course Topic:' in line:
+        return []
+
+    results: List[tuple[str, str]] = []
+
+    # Find all potential course-code pairs in line (not only first match).
+    for match in re.finditer(r'\b([A-Z]{2,8})\s+(\d{2,3}[A-Z]*)\b', line):
+        candidate = f"{match.group(1)} {match.group(2)}"
+        cleaned = clean_course_code(candidate)
+        if cleaned and cleaned not in results:
+            results.append(cleaned)
+
+    # Fallback for existing special-case cleanup logic (e.g., garbled tokens).
+    if not results:
+        cleaned = clean_course_code(line)
+        if cleaned:
+            results.append(cleaned)
+
+    return results
+
+
 def extract_courses_from_transcript(pdf_path: str) -> List[Dict[str, str]]:
     """
     Extract course codes from a Duke University transcript PDF.
@@ -84,9 +120,7 @@ def extract_courses_from_transcript(pdf_path: str) -> List[Dict[str, str]]:
             lines = text.split('\n')
 
             for line in lines:
-                result = clean_course_code(line)
-                if result:
-                    subject, number = result
+                for subject, number in extract_course_codes_from_line(line):
                     full_code = f"{subject} {number}"
 
                     # Skip if already seen
@@ -139,9 +173,7 @@ def extract_courses_by_term(pdf_path: str) -> Dict[str, List[Dict[str, str]]]:
 
                 # Extract course codes
                 if current_term:
-                    result = clean_course_code(line)
-                    if result:
-                        subject, number = result
+                    for subject, number in extract_course_codes_from_line(line):
                         full_code = f"{subject} {number}"
 
                         # Skip duplicates within the same term
