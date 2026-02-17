@@ -5,7 +5,7 @@
  * Shows detailed breakdown of matched/unmatched courses and requirement progress.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import useConfigStore from '../../store/configStore';
 import { api } from '../../utils/api';
 
@@ -162,11 +162,17 @@ function CollapsibleSection({ title, count, color, bgColor, borderColor, default
 }
 
 export default function Step1Upload() {
-  const { config, setCompletedCourses, nextStep } = useConfigStore();
+  const { config, setCompletedCourses, nextStep, demoUploadResult, clearDemoUploadResult } = useConfigStore();
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadResult, setUploadResult] = useState(null);
+  const [uploadResult, setUploadResult] = useState(demoUploadResult || null);
   const [error, setError] = useState(null);
+
+  // Consume and clear the demo upload result from the store so it doesn't
+  // persist across re-renders or navigation back to this step.
+  useEffect(() => {
+    if (demoUploadResult) clearDemoUploadResult();
+  }, [demoUploadResult, clearDemoUploadResult]);
 
   const handleFile = async (file) => {
     if (!file || !file.name.endsWith('.pdf')) {
