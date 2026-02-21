@@ -7,7 +7,7 @@ Contains critical weight conversion logic and helper functions.
 import sys
 import json
 from pathlib import Path
-from typing import List, Optional, Set
+from typing import List, Optional, Set, Dict
 
 # Add parent directory to path to import solver modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -142,6 +142,31 @@ def load_course_choices(data_path: str = "dataslim/processed/processed_courses.j
     except Exception as e:
         print(f"Error loading course choices: {e}")
         return []
+
+
+def load_course_credits(data_path: str = "dataslim/processed/processed_courses.json") -> Dict[str, float]:
+    """
+    Return {course_id: credit_value} for all courses.
+
+    Uses the maximum credit value across all sections of a course,
+    which correctly resolves courses where credits sit on the N-type
+    (non-enrollment) lecture section rather than the E-type enrollment section.
+    """
+    try:
+        with open(data_path) as f:
+            data = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+    credits_map: Dict[str, float] = {}
+    for course in data.get('courses', []):
+        for section in course.get('sections', []):
+            cid = section.get('course_id')
+            if cid:
+                c = float(section.get('credits') or 0.0)
+                if c > credits_map.get(cid, 0.0):
+                    credits_map[cid] = c
+    return credits_map
 
 
 def search_courses(query: str, already_selected: List[str], all_courses: List[str], limit: int = 20) -> List[str]:

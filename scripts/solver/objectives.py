@@ -35,19 +35,30 @@ def build_objective(
         sections: List of all sections
         weights: Objective weights for each metric
     """
-    # Build composite score for each section
+    # Build composite score for each section, weighted by credits.
+    #
+    # Without credit-weighting, a 0.5-credit PE course and a 1.0-credit
+    # lecture both contribute one term to the objective sum.  Packing in
+    # eight 0.5-credit courses beats four 1.0-credit courses even when the
+    # individual scores are identical, because there are twice as many terms.
+    #
+    # Multiplying by credits makes the contribution proportional to how much
+    # of the student's semester the course actually occupies, which is the
+    # correct comparison.
     composite_scores = []
 
     for section in sections:
         # Compute weighted sum of z-scores (floating-point)
         score_float = compute_section_score(section, weights)
 
+        # Credit weight: use 1.0 as floor so required 0-credit labs are neutral
+        credit_weight = section.credits if section.credits > 0 else 1.0
+
         # Scale to integer (preserve precision to 0.001)
-        # Example: z-score of 1.234 → 1234
-        score_int = int(round(score_float * 1000))
+        score_int = int(round(score_float * credit_weight * 1000))
         composite_scores.append(score_int)
 
-    # Define objective: maximize Σ (score[i] × x[i])
+    # Define objective: maximize Σ (score[i] × credits[i] × x[i])
     objective_terms = [
         composite_scores[i] * variables[i]
         for i in range(len(variables))
@@ -96,7 +107,11 @@ def score_schedule(
     Returns:
         Total schedule score (sum of individual section scores)
     """
-    total = sum(compute_section_score(sec, weights) for sec in selected_sections)
+    # Credit-weighted sum, consistent with the solver objective
+    total = sum(
+        compute_section_score(sec, weights) * (sec.credits if sec.credits > 0 else 1.0)
+        for sec in selected_sections
+    )
     return total
 
 
@@ -129,12 +144,18 @@ def compute_metric_averages(
     for section in selected_sections:
         all_metrics.update(section.z_scores.keys())
 
-    # Compute averages
-    averages = {}
-    n = len(selected_sections)
+    # Credit-weighted averages: a 0.5-credit course contributes half as much
+    # to the displayed schedule statistics as a 1.0-credit course.
+    total_credits = sum(
+        sec.credits if sec.credits > 0 else 1.0 for sec in selected_sections
+    )
 
+    averages = {}
     for metric in all_metrics:
-        total = sum(sec.z_scores.get(metric, 0) for sec in selected_sections)
-        averages[metric] = total / n
+        weighted_sum = sum(
+            sec.z_scores.get(metric, 0) * (sec.credits if sec.credits > 0 else 1.0)
+            for sec in selected_sections
+        )
+        averages[metric] = weighted_sum / total_credits
 
     return averages

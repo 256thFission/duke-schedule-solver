@@ -19,24 +19,24 @@ export default function Step0Year() {
       title: 'Before Fall 2025',
       subtitle: 'Curriculum 2000',
       description:
-        'Areas of Knowledge (ALP, CZ, NS, QS, SS) and Modes of Inquiry (CCI, EI, STS, R, W, FL). Writing 101 required.',
+        'Areas of Knowledge: ALP, CZ, NS, QS, SS and Modes of Inquiry: CCI, EI, STS, R, W, FL.',
     },
     {
       value: '2025plus',
       title: 'Fall 2025 or Later',
       subtitle: 'New Trinity Curriculum',
       description:
-        'Liberal Arts Distribution (CE, HI, IJ, NW, QC, SB) with 2 courses each. Writing 120 required.',
+        '2 courses each Liberal Arts Reqs: CE, HI, IJ, NW, QC, SB',
     },
   ];
 
   const prattDescription = selectedYear === '2025plus'
-    ? '5 courses from Liberal Arts codes (CE, HI, IJ, SB, LG). Must cover 4 of 5 categories.'
-    : '5 courses from SS/H codes (ALP, CZ, SS, FL). Depth requirement: 2 courses in one subject.';
+    ? 'Must cover 4 of 5 categories: CE, HI, IJ, SB, LG'
+    : '5 courses from SS/H codes (ALP, CZ, SS, FL)';
 
   const trinityDescription = selectedYear === '2025plus'
-    ? 'Full  (CE, HI, IJ, NW, QC, SB) with 2 courses each, plus W and FL.'
-    : 'Full Areas of Knowledge and Modes of Inquiry.';
+    ? 'Full  (CE, HI, IJ, NW, QC, SB) with 2 courses each, plus W and FL'
+    : 'Full Areas of Knowledge and Modes of Inquiry';
 
   const canContinue = selectedYear !== null && selectedSchool !== null;
 

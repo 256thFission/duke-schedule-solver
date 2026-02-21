@@ -276,7 +276,7 @@ def create_config_from_inputs(
     weight_instructor: float,
     weight_difficulty: float,
     weight_workload: float,
-    num_courses: int,
+    total_credits: float,
     earliest_time: str,
     required_courses: List[str],
     user_class_year: str,
@@ -389,7 +389,8 @@ def create_config_from_inputs(
 
     return SolverConfig(
         weights=weights,
-        num_courses=num_courses,
+        num_courses=round(total_credits),
+        total_credits=total_credits,
         earliest_class_time=earliest_time,
         required_courses=required_list,
         user_class_year=class_year_value,
@@ -473,7 +474,7 @@ def go_next(current_index: int, schedules_data: list, weights_dict: dict, total_
 
 def solve_generator(
     weight_stim, weight_quality, weight_instructor, weight_difficulty, weight_workload,
-    num_courses, earliest_time, required_courses, user_class_year,
+    total_credits, earliest_time, required_courses, user_class_year,
     min_days_off, weekdays_only,
     enable_prereq_filter, completed_courses,
     filter_independent_study, filter_special_topics, filter_tutorial,
@@ -504,7 +505,7 @@ def solve_generator(
 
         config = create_config_from_inputs(
             weight_stim, weight_quality, weight_instructor, weight_difficulty, weight_workload,
-            num_courses, earliest_time, required_courses, user_class_year,
+            total_credits, earliest_time, required_courses, user_class_year,
             min_days_off, weekdays_only,
             enable_prereq_filter, completed_courses,
             filter_independent_study, filter_special_topics, filter_tutorial,
@@ -683,8 +684,8 @@ def create_ui():
                 gr.Markdown("### Schedule Constraints")
 
                 with gr.Row():
-                    num_courses = gr.Slider(1, 7, value=4, step=1,
-                                            label="Number of Courses")
+                    total_credits = gr.Slider(1.0, 8.0, value=4.0, step=0.5,
+                                            label="Target Credits")
                     earliest_time = gr.Dropdown(
                         choices=[label for label, _ in TIME_OPTIONS],
                         value="No restriction",
@@ -862,7 +863,7 @@ def create_ui():
         # -- All solver inputs --
         solver_inputs = [
             weight_stim, weight_quality, weight_instructor, weight_difficulty, weight_workload,
-            num_courses, earliest_time, required_courses, user_class_year,
+            total_credits, earliest_time, required_courses, user_class_year,
             min_days_off, weekdays_only,
             enable_prereq_filter, completed_courses,
             filter_independent_study, filter_special_topics, filter_tutorial,
@@ -967,7 +968,7 @@ def create_ui():
 
 def solve_wrapper(
     weight_stim, weight_quality, weight_instructor, weight_difficulty, weight_workload,
-    num_courses, earliest_time_label, required_courses, user_class_year,
+    total_credits, earliest_time_label, required_courses, user_class_year,
     min_days_off, weekdays_only,
     enable_prereq_filter, completed_courses,
     filter_independent_study, filter_special_topics, filter_tutorial,
@@ -987,7 +988,7 @@ def solve_wrapper(
 
     yield from solve_generator(
         weight_stim, weight_quality, weight_instructor, weight_difficulty, weight_workload,
-        num_courses, earliest_time, required_courses, user_class_year,
+        total_credits, earliest_time, required_courses, user_class_year,
         min_days_off, weekdays_only,
         enable_prereq_filter, completed_courses,
         filter_independent_study, filter_special_topics, filter_tutorial,

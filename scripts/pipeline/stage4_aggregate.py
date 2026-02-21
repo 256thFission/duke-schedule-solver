@@ -18,6 +18,48 @@ METRIC_NAMES = [
     'hours_per_week'
 ]
 
+# These metrics measure absolute quantities that should be compared on a
+# per-credit basis.  A 0.5-credit PE course at 1 hr/week and a 1.0-credit
+# lecture at 2 hrs/week represent the same effort per credit, so they should
+# receive the same z-score for workload.
+CREDITS_NORMALIZED_METRICS = ['hours_per_week']
+
+
+def _adjust_z_scores_per_credit(sections: List[Dict], global_priors: Dict) -> None:
+    """
+    Re-derive hours_per_week z-scores on a per-credit scale after Bayesian shrinkage.
+
+    The Bayesian prior is computed from raw evaluation records (9 000+ records),
+    which is stable and outlier-resistant.  After shrinkage, each section has a
+    posterior_mean in absolute hrs/week.  For a fair cross-course comparison we
+    want z = (posterior_mean / credits − μ₀) / σ₀.
+
+    Only modifies sections with credits != 1.0 to minimise unnecessary writes.
+    Sections with missing or zero credits are treated as 1.0-credit courses.
+    """
+    count = 0
+    for metric_name in CREDITS_NORMALIZED_METRICS:
+        prior = global_priors.get(metric_name, {})
+        mu0 = prior.get('mu0', 4.35)
+        sigma0 = prior.get('sigma0', 1.693)
+        if sigma0 < 0.1:
+            continue
+        for section in sections:
+            credits = float(section.get('credits') or 1.0)
+            if credits <= 0:
+                credits = 1.0
+            if credits == 1.0:
+                continue
+            m = section.get('metrics', {}).get(metric_name)
+            if m is None or 'z_score' not in m:
+                continue
+            posterior_mean = m.get('posterior_mean', m.get('mean', mu0))
+            per_credit_posterior = posterior_mean / credits
+            m['z_score'] = round((per_credit_posterior - mu0) / sigma0, 4)
+            count += 1
+    print(f"  Per-credit z-score adjustment applied to {count} section-metrics "
+          f"({', '.join(CREDITS_NORMALIZED_METRICS)})")
+
 
 def aggregate_evaluations(evaluations: List[Dict], instructor_lookup: Dict[str, str]) -> Dict[tuple, Dict]:
     """
@@ -253,11 +295,20 @@ def aggregate(sections: List[Dict], config: Dict, evaluations: List[Dict] = None
     if solver_enabled and evaluations:
         print("\n--- Bayesian Shrinkage Pipeline ---")
 
-        # Step 1: Calculate global priors from raw evaluations
+        # Step 1: Calculate global priors from raw evaluation records.
+        # Using all 9 000+ raw records keeps the prior stable and
+        # outlier-resistant for all metrics including hours_per_week.
         global_priors = calculate_global_priors(evaluations, METRIC_NAMES)
 
         # Step 2: Apply shrinkage to all section metrics
         apply_bayesian_shrinkage(sections, global_priors, METRIC_NAMES, config)
+
+        # Step 2.5: Re-derive hours_per_week z-scores on a per-credit scale.
+        # After shrinkage each section has an absolute posterior_mean (hrs/week).
+        # Dividing by credits before z-scoring puts all courses on equal footing:
+        # a 0.5-credit PE course at 1 hr/week ≈ 2 hrs/credit compares fairly
+        # against a 1.0-credit lecture at 2 hrs/week ≈ 2 hrs/credit.
+        _adjust_z_scores_per_credit(sections, global_priors)
 
         # Step 3: Validate results
         validation_results = validate_shrinkage_quality(sections, METRIC_NAMES)

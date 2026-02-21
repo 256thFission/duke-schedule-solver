@@ -266,7 +266,7 @@ export default function Step3Requirements() {
 
       {/* Solver constraint — at top */}
       <fieldset>
-        <legend>How many courses should be Reqs?</legend>
+        <legend>How many courses do you want to put toward your degree? We'll require them to fit any of the highlighted categories.</legend>
 
         {config.requirements.attributes.length > 0 ? (
           <>
@@ -275,20 +275,20 @@ export default function Step3Requirements() {
               <input
                 type="number"
                 min="0"
-                max={Math.min(4, config.num_courses)}
+                max={Math.min(8, Math.floor(config.total_credits / 0.5))}
                 value={config.requirements.min_count}
                 onChange={handleMinCountChange}
                 style={{ width: 64, fontSize: 'var(--font-lg)', textAlign: 'center' }}
               />
               <span style={{ fontSize: 'var(--font-sm)' }}>
-                of your {config.num_courses} courses should have one of these attributes
+                of your courses should have one of these attributes
               </span>
             </div>
             <div className="banner banner--success" style={{ marginTop: 'var(--sp-md)', marginBottom: 0 }}>
               {config.requirements.attributes.map((c) => `[${c}]`).join(' ')}
               {config.requirements.min_count > 0 && (
                 <span>
-                  {' '}|  {config.requirements.min_count} course(s) will have these codes
+                  {' '}!  {config.requirements.min_count} course(s) will beforoced to match one of those codes.
                 </span>
               )}
             </div>

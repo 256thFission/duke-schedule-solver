@@ -73,19 +73,27 @@ def add_conflict_constraints(
 def add_course_load_constraint(
     model: cp_model.CpModel,
     variables: List[cp_model.IntVar],
-    num_courses: int
+    sections: List[Section],
+    total_credits: float
 ) -> None:
     """
-    Require exactly N courses to be selected.
+    Require selected sections to total exactly target_credits.
 
-    Constraint: Σ x[i] = N
+    CP-SAT requires integer coefficients; scale by 4 so that
+    the smallest unit (0.25 credit) maps to integer 1.
 
     Args:
         model: CP-SAT model
         variables: List of boolean decision variables
-        num_courses: Required number of courses
+        sections: List of sections (parallel to variables)
+        total_credits: Required total credit count
     """
-    model.Add(sum(variables) == num_courses)
+    scale = 4
+    target = round(total_credits * scale)
+    model.Add(
+        sum(round((s.credits or 0.0) * scale) * v
+            for s, v in zip(sections, variables)) == target
+    )
 
 
 def add_required_courses_constraints(
@@ -347,7 +355,7 @@ def _match_course_id(requested: str, available_courses: Set[str]) -> str:
 def validate_feasibility(
     sections: List[Section],
     required_courses: List[str],
-    num_courses: int
+    total_credits: float
 ) -> Tuple[bool, str]:
     """
     Pre-check if the problem is likely feasible before building the model.
@@ -355,12 +363,12 @@ def validate_feasibility(
     Checks:
     1. Enough sections exist
     2. All required courses are available
-    3. Required courses don't exceed total course limit
+    3. Required course credits don't exceed the credit target
 
     Args:
         sections: List of available sections
         required_courses: List of required course IDs
-        num_courses: Total number of courses needed
+        total_credits: Target total credits
 
     Returns:
         Tuple of (is_feasible, error_message)
@@ -370,17 +378,20 @@ def validate_feasibility(
     if len(sections) == 0:
         return False, "No sections available (all filtered out)"
 
-    if len(required_courses) > num_courses:
-        return False, (
-            f"Cannot satisfy: {len(required_courses)} required courses "
-            f"but only {num_courses} total courses allowed"
-        )
-
-    # Check if all required courses exist
+    # Check if all required courses exist and sum their credits
     available_courses = set(sec.course_id for sec in sections)
+    required_credit_total = 0.0
     for course_id in required_courses:
         matched_id = _match_course_id(course_id, available_courses)
         if matched_id not in available_courses:
             return False, f"Required course '{course_id}' not available in filtered sections"
+        course_secs = [s for s in sections if s.course_id == matched_id]
+        required_credit_total += max((s.credits for s in course_secs), default=0.0)
+
+    if required_credit_total > total_credits + 0.5:
+        return False, (
+            f"Required courses total {required_credit_total:.2f} credits "
+            f"but target is only {total_credits:.2f}"
+        )
 
     return True, ""

@@ -22,6 +22,7 @@ export default function Step2MustTakes() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [courseCredits, setCourseCredits] = useState({});
 
   // Debounced search
   useEffect(() => {
@@ -35,6 +36,7 @@ export default function Step2MustTakes() {
       try {
         const result = await api.searchCourses(searchQuery, config.required_courses);
         setSearchResults(result.courses);
+        setCourseCredits((prev) => ({ ...prev, ...(result.course_credits || {}) }));
       } catch (err) {
         console.error('Search error:', err);
         setSearchResults([]);
@@ -47,30 +49,31 @@ export default function Step2MustTakes() {
   }, [searchQuery, config.required_courses]);
 
   const handleAddCourse = (courseId) => {
-    addRequiredCourse(courseId);
+    addRequiredCourse(courseId, courseCredits[courseId] ?? 1.0);
     setSearchQuery('');
     setSearchResults([]);
   };
 
-
-  const mustTakeCount = config.required_courses.length;
-  const overPinned = mustTakeCount > config.num_courses;
-  const allPinned = mustTakeCount === config.num_courses;
+  const pinnedCredits = config.required_courses.reduce(
+    (sum, id) => sum + (config.required_course_credits?.[id] ?? 1.0), 0
+  );
+  const overPinned = pinnedCredits > config.total_credits + 0.1;
+  const allPinned = Math.abs(pinnedCredits - config.total_credits) < 0.1;
 
   return (
     <div className="step-container">
       <h2 className="step-title">Course Setup</h2>
 
-      {/* Number of Courses */}
+      {/* Credit Target */}
       <fieldset>
-        <legend>How many courses this semester?</legend>
+        <legend>How many credits this semester?</legend>
         <div style={{ display: 'flex', gap: 'var(--sp-md)', alignItems: 'center' }}>
-          {[3, 4, 5, 6].map((n) => {
-            const active = config.num_courses === n;
+          {[3.0, 3.5, 4.0, 4.5, 5.0].map((c) => {
+            const active = config.total_credits === c;
             return (
               <button
-                key={n}
-                onClick={() => updateConfig({ num_courses: n })}
+                key={c}
+                onClick={() => updateConfig({ total_credits: c })}
                 style={{
                   width: 52,
                   height: 52,
@@ -82,13 +85,13 @@ export default function Step2MustTakes() {
                   cursor: 'pointer',
                 }}
               >
-                {n}
+                {c}
               </button>
             );
           })}
         </div>
         <p className="field-hint">
-          If you take more than 6 you should probably plan with a human advisor...
+          If you take more than 5 credits you should probably plan with a human advisor...
         </p>
       </fieldset>
 
@@ -152,16 +155,16 @@ export default function Step2MustTakes() {
       {/* Selected Courses */}
       <fieldset className="field-gap">
         <legend>
-          Pinned ({mustTakeCount} of {config.num_courses} slots)
+          Pinned ({pinnedCredits.toFixed(2)} of {config.total_credits} credits)
         </legend>
 
-        {mustTakeCount === 0 && (
+        {config.required_courses.length === 0 && (
           <p style={{ color: 'var(--c-text-light)', fontSize: 'var(--font-sm)' }}>
-            No courses pinned. I will choose all {config.num_courses} courses for you.
+            No courses pinned. I will choose all {config.total_credits} credits worth of courses for you.
           </p>
         )}
 
-        {mustTakeCount > 0 && (
+        {config.required_courses.length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--sp-sm)' }}>
             {config.required_courses.map((courseId) => (
               <div key={courseId} className="chip chip--blue">
@@ -181,13 +184,13 @@ export default function Step2MustTakes() {
         {/* Validation warnings */}
         {overPinned && (
           <div className="banner banner--error" style={{ marginTop: 'var(--sp-md)' }}>
-            You've pinned {mustTakeCount} courses but are only taking {config.num_courses}.
-            Remove some must-takes or increase your course count.
+            You've pinned {pinnedCredits.toFixed(2)} credits but your target is only {config.total_credits}.
+            Remove some must-takes or increase your credit target.
           </div>
         )}
         {allPinned && !overPinned && (
           <div className="banner banner--warning" style={{ marginTop: 'var(--sp-md)' }}>
-            All {config.num_courses} slots are pinned. The solver has no flexibility to optimize.
+            All {config.total_credits} credit slots are pinned. The solver has no flexibility to optimize.
           </div>
         )}
       </fieldset>
