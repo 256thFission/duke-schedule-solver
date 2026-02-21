@@ -44,7 +44,7 @@ class SolverRequest(BaseModel):
     completed_courses: List[str] = Field(default_factory=list, description="Course IDs already completed")
     required_courses: List[str] = Field(default_factory=list, description="Course IDs that must be included")
     banned_courses: List[str] = Field(default_factory=list, description="Course IDs to exclude from results (reroll bans)")
-    num_courses: int = Field(default=4, ge=1, le=6, description="Number of courses to schedule")
+    total_credits: float = Field(default=4.0, gt=0, le=10.0, description="Target credit total")
     weights: WeightsInput
     constraints: ConstraintsInput
     requirements: RequirementsInput
@@ -89,6 +89,8 @@ class CourseSearchResponse(BaseModel):
     """Response from course search endpoint."""
     courses: List[str] = Field(description="Matching course IDs")
     total: int = Field(description="Total number of matches")
+    course_credits: Dict[str, float] = Field(default_factory=dict,
+        description="Map of course_id to credit value for matched courses")
 
 
 class LinkedSectionData(BaseModel):
@@ -112,6 +114,7 @@ class SectionData(BaseModel):
     attributes: List[str] = Field(default_factory=list, description="Course attributes")
     component: str = Field(default='', description="Component type (LEC, LAB, DIS, etc.)")
     linked_sections: List[LinkedSectionData] = Field(default_factory=list, description="Linked non-enrollment sections (e.g., lectures paired with this lab)")
+    credits: float = Field(default=1.0, description="Credit value for this section")
 
 
 class ScheduleData(BaseModel):
@@ -128,3 +131,10 @@ class ScheduleResponse(BaseModel):
     schedules: List[ScheduleData] = Field(default_factory=list)
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Solver metadata")
     error: Optional[str] = None
+
+
+class RemovalRequest(BaseModel):
+    """Body for POST /track-removal."""
+    course_id: str
+    reason: str = Field(description="not_interested | cannot_take | not_helpful | other")
+    reason_text: str = Field(default="", description="Free-text when reason == 'other'")

@@ -132,7 +132,7 @@ export default function Step5Logistics() {
           <div className="summary-row">
             <span className="summary-label">Courses</span>
             <span>
-              {config.num_courses} total
+              {config.total_credits} credits
               {config.required_courses.length > 0 &&
                 ` | ${config.required_courses.length} pinned`}
             </span>

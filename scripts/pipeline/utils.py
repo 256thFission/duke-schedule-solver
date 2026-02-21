@@ -431,6 +431,15 @@ VALID_SUBJECT_CODES = {
 }
 
 
+# Foreign language departments (for FL attribute filtering)
+# Courses from these departments that have FL tag indicate language instruction
+FOREIGN_LANGUAGE_DEPARTMENTS = {
+    'ARABIC', 'ASL', 'CHINESE', 'FRENCH', 'GERMAN', 'GREEK', 'HEBREW',
+    'HINDI', 'ITALIAN', 'JPN', 'KOREAN', 'LATIN', 'PORTUGUE', 'RUSSIAN',
+    'SPANISH', 'SWAHILI', 'TURKISH', 'CHEROKEE', 'CREOLE', 'KICHE', 'QUECHUA'
+}
+
+
 def _normalize_department_name(name: str) -> Optional[str]:
     """
     Convert a department name to its standard code.

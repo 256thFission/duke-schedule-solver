@@ -5,7 +5,7 @@
  * Navigate between solutions. Humanized metric bars.
  */
 
-import { useMemo, useCallback, useState } from 'react';
+import { useMemo, useCallback, useState, useRef } from 'react';
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import enUS from 'date-fns/locale/en-US';
@@ -120,19 +120,54 @@ export default function Step6Results() {
   const [bannedCourses, setBannedCourses] = useState([]);
   const [rerollError, setRerollError] = useState(null);
 
+  // Removal reason modal state
+  const [removalModal, setRemovalModal] = useState(null); // { courseId } | null
+  const [selectedReason, setSelectedReason] = useState(null);
+  const [otherText, setOtherText] = useState('');
+  const otherInputRef = useRef(null);
+
   const currentSchedule = schedules[currentScheduleIndex];
 
-  const toggleMark = useCallback((courseId) => {
+  // Directly mark/unmark without asking why (used internally and for undo)
+  const markCourse = useCallback((courseId) => {
     setMarkedForRemoval((prev) => {
       const next = new Set(prev);
-      if (next.has(courseId)) {
-        next.delete(courseId);
-      } else {
-        next.add(courseId);
-      }
+      next.add(courseId);
       return next;
     });
   }, []);
+
+  const unmarkCourse = useCallback((courseId) => {
+    setMarkedForRemoval((prev) => {
+      const next = new Set(prev);
+      next.delete(courseId);
+      return next;
+    });
+  }, []);
+
+  // Called by the ✕ button — opens modal for unmarked, unmarks directly for marked
+  const handleCourseButtonClick = useCallback((courseId, isMarked) => {
+    if (isMarked) {
+      unmarkCourse(courseId);
+    } else {
+      setSelectedReason(null);
+      setOtherText('');
+      setRemovalModal({ courseId });
+    }
+  }, [unmarkCourse]);
+
+  const closeModal = useCallback(() => {
+    setRemovalModal(null);
+    setSelectedReason(null);
+    setOtherText('');
+  }, []);
+
+  const confirmRemoval = useCallback(() => {
+    if (!removalModal || !selectedReason) return;
+    api.trackRemoval(removalModal.courseId, selectedReason, otherText);
+    markCourse(removalModal.courseId);
+    closeModal();
+  }, [removalModal, selectedReason, otherText, markCourse, closeModal]);
 
   const handleReroll = useCallback(async () => {
     if (!currentSchedule || markedForRemoval.size === 0) return;
@@ -300,34 +335,46 @@ export default function Step6Results() {
   return (
     <div className="step-container--wide">
       {/* Header row with title and navigation */}
-      <div style={{
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        marginBottom: 20, flexWrap: 'wrap', gap: 'var(--sp-md)',
-      }}>
-        <h2 className="step-title" style={{ margin: 0 }}>
-          Schedule Options
-        </h2>
-        {schedules.length > 1 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-sm)' }}>
-            <button
-              onClick={prevSchedule}
-              style={{ padding: '4px 14px', cursor: 'pointer' }}
-              aria-label="Previous schedule"
-            >
-              Prev
-            </button>
-            <span style={{ fontWeight: 700, fontSize: 'var(--font-sm)', minWidth: 48, textAlign: 'center' }}>
-              {currentScheduleIndex + 1} / {schedules.length}
-            </span>
-            <button
-              onClick={nextSchedule}
-              style={{ padding: '4px 14px', cursor: 'pointer' }}
-              aria-label="Next schedule"
-            >
-              Next
-            </button>
+      <div style={{ marginBottom: 20 }}>
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end',
+          flexWrap: 'wrap', gap: 'var(--sp-md)',
+        }}>
+          <h2 className="step-title" style={{ margin: 0 }}>
+            Schedule Options
+          </h2>
+
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
+            flex: '1 1 220px',
+          }}>
+            {schedules.length > 1 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-sm)' }}>
+                <button
+                  onClick={prevSchedule}
+                  style={{ padding: '4px 14px', cursor: 'pointer' }}
+                  aria-label="Previous schedule"
+                >
+                  Prev
+                </button>
+                <span style={{ fontWeight: 700, fontSize: 'var(--font-sm)', minWidth: 48, textAlign: 'center' }}>
+                  {currentScheduleIndex + 1} / {schedules.length}
+                </span>
+                <button
+                  onClick={nextSchedule}
+                  style={{ padding: '4px 14px', cursor: 'pointer' }}
+                  aria-label="Next schedule"
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </div>
-        )}
+        </div>
+
+        <p style={{ fontSize: 'var(--font-sm)', marginTop: 'var(--sp-md)', marginBottom: 0 }}>
+          Click the 'x' to remove a course from this schedule and reroll for a better one!
+        </p>
       </div>
 
       <div style={{ display: 'flex', gap: 'var(--sp-xl)', flexWrap: 'wrap' }}>
@@ -366,6 +413,9 @@ export default function Step6Results() {
           }}>
             <div style={{ fontWeight: 700, fontSize: 'var(--font-base)', color: 'var(--c-text)', marginBottom: 'var(--sp-md)' }}>
               Courses ({currentSchedule.sections.length})
+              <span style={{ fontWeight: 400, fontSize: 'var(--font-xs)', color: 'var(--c-text-muted)', marginLeft: 8 }}>
+                {currentSchedule.sections.reduce((sum, s) => sum + (s.credits ?? 1), 0).toFixed(2)} cr total
+              </span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {currentSchedule.sections.map((section, idx) => {
@@ -384,7 +434,7 @@ export default function Step6Results() {
                     }}
                   >
                     <button
-                      onClick={() => toggleMark(section.course_id)}
+                      onClick={() => handleCourseButtonClick(section.course_id, isMarked)}
                       title={isMarked ? 'Keep this course' : 'Remove this course'}
                       style={{
                         position: 'absolute', top: 6, right: 6,
@@ -422,6 +472,9 @@ export default function Step6Results() {
                     </div>
                     <div style={{ fontSize: 'var(--font-xs)', color: 'var(--c-text-light)', marginTop: 2 }}>
                       {section.instructor_name}
+                    </div>
+                    <div style={{ fontSize: 'var(--font-xs)', color: 'var(--c-text-muted)', marginTop: 2 }}>
+                      {section.credits != null ? `${section.credits} cr` : ''}
                     </div>
                     {section.linked_sections && section.linked_sections.length > 0 && (
                       <div style={{ marginTop: 4, fontSize: 'var(--font-xs)', color: 'var(--c-text-light)' }}>
@@ -563,6 +616,153 @@ export default function Step6Results() {
           Start Over
         </button>
       </div>
+
+      {/* Removal reason modal */}
+      {removalModal && (
+        <div
+          onClick={closeModal}
+          style={{
+            position: 'fixed', inset: 0,
+            backgroundColor: 'rgba(0,0,0,0.45)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 1000,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: 'var(--c-surface)',
+              borderRadius: 'var(--r-lg)',
+              padding: 'var(--sp-xl)',
+              maxWidth: 420,
+              width: '90%',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
+              position: 'relative',
+            }}
+          >
+            {/* Close button */}
+            <button
+              onClick={closeModal}
+              style={{
+                position: 'absolute', top: 12, right: 12,
+                width: 28, height: 28, borderRadius: '50%',
+                border: '1px solid var(--c-border-light)',
+                backgroundColor: 'var(--c-surface-dim)',
+                color: 'var(--c-text-muted)',
+                cursor: 'pointer', fontSize: 14, fontWeight: 700,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: 0, lineHeight: 1,
+              }}
+              aria-label="Dismiss"
+            >
+              ✕
+            </button>
+
+            <h3 style={{
+              margin: '0 0 var(--sp-sm) 0',
+              fontSize: 'var(--font-base)',
+              fontWeight: 700,
+              color: 'var(--c-text)',
+              paddingRight: 32,
+            }}>
+              Why&apos;d you remove{' '}
+              <span style={{ color: 'var(--c-primary)' }}>{removalModal.courseId}</span>?
+            </h3>
+            <p style={{ margin: '0 0 var(--sp-lg) 0', fontSize: 'var(--font-sm)', color: 'var(--c-text-muted)' }}>
+              Helps us improve recommendations.
+            </p>
+
+            {/* Reason options */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 'var(--sp-md)' }}>
+              {[
+                { value: 'not_interested', label: 'Not interested' },
+                { value: 'cannot_take', label: 'Cannot take it' },
+                { value: 'not_helpful', label: 'Not helpful for my goals' },
+                { value: 'other', label: 'Other' },
+              ].map(({ value, label }) => {
+                const isSelected = selectedReason === value;
+                return (
+                  <button
+                    key={value}
+                    onClick={() => {
+                      setSelectedReason(value);
+                      if (value === 'other') {
+                        setTimeout(() => otherInputRef.current?.focus(), 50);
+                      }
+                    }}
+                    style={{
+                      padding: '10px 14px',
+                      textAlign: 'left',
+                      border: `2px solid ${isSelected ? 'var(--c-primary)' : 'var(--c-border-light)'}`,
+                      borderRadius: 'var(--r-md)',
+                      backgroundColor: isSelected ? 'var(--c-primary-light)' : 'var(--c-surface)',
+                      color: isSelected ? 'var(--c-primary)' : 'var(--c-text)',
+                      fontWeight: isSelected ? 700 : 400,
+                      cursor: 'pointer',
+                      fontSize: 'var(--font-sm)',
+                      transition: 'all 0.12s ease',
+                    }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* "Other" text input */}
+            {selectedReason === 'other' && (
+              <textarea
+                ref={otherInputRef}
+                value={otherText}
+                onChange={(e) => setOtherText(e.target.value)}
+                placeholder="Tell us more (optional)..."
+                rows={2}
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  border: '1px solid var(--c-border)',
+                  borderRadius: 'var(--r-sm)',
+                  fontSize: 'var(--font-sm)',
+                  resize: 'vertical',
+                  fontFamily: 'inherit',
+                  marginBottom: 'var(--sp-md)',
+                  boxSizing: 'border-box',
+                  color: 'var(--c-text)',
+                  backgroundColor: 'var(--c-surface-dim)',
+                }}
+              />
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--sp-sm)' }}>
+              <button
+                onClick={closeModal}
+                style={{
+                  padding: '8px 18px', fontSize: 'var(--font-sm)',
+                  border: '1px solid var(--c-border)', borderRadius: 'var(--r-md)',
+                  backgroundColor: 'var(--c-surface)', color: 'var(--c-text-light)',
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmRemoval}
+                disabled={!selectedReason}
+                style={{
+                  padding: '8px 20px', fontSize: 'var(--font-sm)', fontWeight: 700,
+                  border: 'none', borderRadius: 'var(--r-md)',
+                  backgroundColor: selectedReason ? '#ef4444' : 'var(--c-border)',
+                  color: 'white',
+                  cursor: selectedReason ? 'pointer' : 'default',
+                  transition: 'background-color 0.12s',
+                }}
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -14,14 +14,19 @@ export const api = {
    * @param {File} file - PDF file object
    * @returns {Promise<Object>} Transcript response with matched courses
    */
-  parseTranscript: async (file, matriculationYear = 'pre2025') => {
+  parseTranscript: async (file, matriculationYear = 'pre2025', saveForResearch = false) => {
     const formData = new FormData();
     formData.append('file', file);
+
+    const params = new URLSearchParams({
+      matriculation_year: matriculationYear,
+      save_for_research: saveForResearch,
+    });
 
     // Don't manually set Content-Type — axios auto-sets it with the
     // correct multipart boundary when given a FormData object
     const { data } = await axios.post(
-      `${API_BASE}/parse-transcript?matriculation_year=${encodeURIComponent(matriculationYear)}`,
+      `${API_BASE}/parse-transcript?${params}`,
       formData
     );
 
@@ -50,5 +55,19 @@ export const api = {
   solve: async (config) => {
     const { data } = await axios.post(`${API_BASE}/solve`, config);
     return data;
+  },
+
+  /**
+   * Log the reason a user removed a course (fire-and-forget).
+   * @param {string} courseId
+   * @param {string} reason - not_interested | cannot_take | not_helpful | other
+   * @param {string} reasonText - free text when reason === 'other'
+   */
+  trackRemoval: (courseId, reason, reasonText = '') => {
+    axios.post(`${API_BASE}/track-removal`, {
+      course_id: courseId,
+      reason,
+      reason_text: reasonText,
+    }).catch(() => {/* silently ignore */});
   },
 };

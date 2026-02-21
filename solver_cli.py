@@ -171,7 +171,7 @@ Examples:
         print("NO FEASIBLE SCHEDULES FOUND")
         print("=" * 71)
         print("\nTroubleshooting suggestions:")
-        print("  1. Reduce num_courses in your config")
+        print("  1. Reduce total_credits in your config")
         print("  2. Relax or disable days_off constraint")
         print("  3. Remove conflicting required_courses")
         print("  4. Adjust earliest_class_time to allow more options")
@@ -184,7 +184,7 @@ Examples:
     "overall_course_quality": 0.5
   },
   "constraints": {
-    "num_courses": 4,
+    "total_credits": 4.0,
     "earliest_class_time": "08:00",
     "required_courses": []
   },
