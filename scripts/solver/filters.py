@@ -174,20 +174,72 @@ class AttributeFlagFilter(BaseFilter):
 
 class TitleKeywordFilter(BaseFilter):
     """Filter sections with specific keywords in title"""
-    
+
     def apply(self, section, config: SolverConfig) -> FilterReason:
         if not config.filters or not config.filters.title_keywords:
             return FilterReason.keep()
-        
+
         kw_filter = config.filters.title_keywords
         if not kw_filter.enabled or not kw_filter.keywords:
             return FilterReason.keep()
-        
+
         title_lower = section.title.lower()
         for keyword in kw_filter.keywords:
             if keyword.lower() in title_lower:
                 return FilterReason.exclude(f'title_keyword_{keyword}')
-        
+
+        return FilterReason.keep()
+
+
+class ForeignLanguageFilter(BaseFilter):
+    """
+    Filter FL-tagged courses from different foreign language departments.
+
+    If a student has already taken a course with the FL (Foreign Language) attribute
+    from one department, ban FL-tagged courses from ALL other foreign language departments.
+    Non-FL courses from those departments are still allowed.
+    """
+
+    def apply(self, section, config: SolverConfig) -> FilterReason:
+        if not config.prerequisite_filter or not config.prerequisite_filter.enabled:
+            return FilterReason.keep()
+
+        # Import the foreign language department set
+        try:
+            from ..pipeline.utils import FOREIGN_LANGUAGE_DEPARTMENTS
+        except ImportError:
+            # Fallback if import fails
+            FOREIGN_LANGUAGE_DEPARTMENTS = {
+                'ARABIC', 'ASL', 'CHINESE', 'FRENCH', 'GERMAN', 'GREEK', 'HEBREW',
+                'HINDI', 'ITALIAN', 'JPN', 'KOREAN', 'LATIN', 'PORTUGUE', 'RUSSIAN',
+                'SPANISH', 'SWAHILI', 'TURKISH', 'CHEROKEE', 'CREOLE', 'KICHE', 'QUECHUA'
+            }
+
+        # Check if this section has the FL attribute
+        section_has_fl = 'FL' in section.attributes
+        if not section_has_fl:
+            # Not an FL course, so no restriction
+            return FilterReason.keep()
+
+        # Extract department from course_id (e.g., "SPANISH-101" -> "SPANISH")
+        section_dept = section.course_id.split('-')[0] if '-' in section.course_id else ''
+        if section_dept not in FOREIGN_LANGUAGE_DEPARTMENTS:
+            # Not a foreign language department, keep it
+            return FilterReason.keep()
+
+        # Check completed courses for FL courses from other departments
+        completed_courses = config.prerequisite_filter.completed_courses
+        for completed_course_id in completed_courses:
+            completed_dept = completed_course_id.split('-')[0] if '-' in completed_course_id else ''
+
+            # If completed course is from a different FL department, we need to check if it had FL tag
+            # Since we don't have attribute info for completed courses, we assume courses from
+            # FL departments are FL courses (conservative assumption)
+            if (completed_dept in FOREIGN_LANGUAGE_DEPARTMENTS and
+                completed_dept != section_dept):
+                # Student took FL course from different department - ban this section
+                return FilterReason.exclude(f'different_fl_dept_{completed_dept}')
+
         return FilterReason.keep()
 
 
@@ -205,21 +257,22 @@ class FilterPipeline:
     def __init__(self, config: SolverConfig):
         """
         Initialize filter pipeline with configuration.
-        
+
         Args:
             config: Solver configuration
         """
         self.config = config
-        
+
         # Build filter chain in priority order
         # Removed: CatalogNumberPatternFilter, LegacySpecificCourseFilter (replaced by attributes)
         self.filters: List[BaseFilter] = [
             EarliestTimeFilter(),
             PrerequisiteFilter(),
+            ForeignLanguageFilter(),
             AttributeFlagFilter(),
             TitleKeywordFilter(),
         ]
-        
+
         # Statistics
         self.filter_counts: Dict[str, int] = {}
         self.total_processed = 0

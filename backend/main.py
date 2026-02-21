@@ -35,12 +35,14 @@ from scripts.solver.graduation_requirements import (
 from schemas import (
     SolverRequest, TranscriptResponse, CourseSearchResponse,
     ScheduleResponse, ScheduleData, SectionData,
-    GraduationRequirementsData, RequirementProgressData
+    GraduationRequirementsData, RequirementProgressData,
+    RemovalRequest,
 )
 from utils import (
     convert_frontend_weights, infer_class_year,
-    load_course_choices, search_courses
+    load_course_choices, load_course_credits, search_courses
 )
+import analytics
 
 
 # ---------------------------------------------------------------------------
@@ -81,7 +83,8 @@ DATA_PATH = str(PROJECT_ROOT / "dataslim" / "processed" / "processed_courses.jso
 @app.post("/parse-transcript", response_model=TranscriptResponse)
 async def parse_transcript(
     file: UploadFile = File(...),
-    matriculation_year: str = Query(default="pre2025", description="'pre2025' or '2025plus'")
+    matriculation_year: str = Query(default="pre2025", description="'pre2025' or '2025plus'"),
+    save_for_research: bool = Query(default=False, description="Save anonymized transcript to S3 for research (user consent required)"),
 ) -> TranscriptResponse:
     """
     Extract courses from an uploaded Duke transcript PDF.
@@ -108,6 +111,10 @@ async def parse_transcript(
             content = await file.read()
             tmp_file.write(content)
             tmp_path = tmp_file.name
+
+        # Persist anonymized transcript to S3 if user consented
+        if save_for_research:
+            analytics.save_transcript(content)
 
         # Extract courses from PDF
         extracted_courses = extract_courses_from_transcript(tmp_path)
@@ -252,11 +259,14 @@ async def search_courses_endpoint(
     """
     try:
         all_courses = load_course_choices(DATA_PATH)
+        course_credits_map = load_course_credits(DATA_PATH)
         matches = search_courses(query, exclude, all_courses, limit)
+        relevant_credits = {cid: course_credits_map.get(cid, 0.0) for cid in matches}
 
         return CourseSearchResponse(
             courses=matches,
-            total=len(matches)
+            total=len(matches),
+            course_credits=relevant_credits
         )
 
     except Exception as e:
@@ -331,7 +341,8 @@ async def solve_schedule(config: SolverRequest) -> ScheduleResponse:
         # Step 6: Build complete solver config
         solver_config = SolverConfig(
             weights=solver_weights,
-            num_courses=config.num_courses,
+            num_courses=round(config.total_credits),
+            total_credits=config.total_credits,
             earliest_class_time=config.constraints.earliest_class_time,
             required_courses=config.required_courses,
             user_class_year=config.user_class_year,
@@ -418,7 +429,8 @@ async def solve_schedule(config: SolverRequest) -> ScheduleResponse:
                     z_scores=section.z_scores,
                     attributes=section.attributes,
                     component=section.component,
-                    linked_sections=section.linked_sections
+                    linked_sections=section.linked_sections,
+                    credits=section.credits,
                 ))
 
             response_schedules.append(ScheduleData(
@@ -427,6 +439,11 @@ async def solve_schedule(config: SolverRequest) -> ScheduleResponse:
                 sections=sections_data,
                 average_metrics=avg_metrics
             ))
+
+        analytics.log_solve_event(
+            num_courses=round(config.total_credits),
+            total_credits=config.total_credits,
+        )
 
         return ScheduleResponse(
             success=True,
@@ -437,7 +454,7 @@ async def solve_schedule(config: SolverRequest) -> ScheduleResponse:
                 "num_solutions_found": len(raw_schedules),
                 "solver_config": {
                     "weights": solver_weights.to_dict(),
-                    "num_courses": config.num_courses,
+                    "total_credits": config.total_credits,
                     "earliest_class_time": config.constraints.earliest_class_time,
                     "min_days_off": config.constraints.min_days_off
                 }
@@ -464,6 +481,25 @@ async def solve_schedule(config: SolverRequest) -> ScheduleResponse:
             metadata={},
             error=f"Solver error: {str(e)}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Endpoint 4: POST /track-removal
+# ---------------------------------------------------------------------------
+
+@app.post("/track-removal", status_code=204)
+async def track_removal(body: RemovalRequest) -> None:
+    """
+    Log the reason a user removed a course from their schedule.
+
+    Writes an anonymized event JSON to S3 (fire-and-forget).
+    Always returns 204 No Content; errors are silently swallowed.
+    """
+    analytics.log_removal_event(
+        course_id=body.course_id,
+        reason=body.reason,
+        reason_text=body.reason_text,
+    )
 
 
 # ---------------------------------------------------------------------------

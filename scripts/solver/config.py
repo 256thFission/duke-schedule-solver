@@ -174,7 +174,8 @@ class SolverConfig:
     weights: ObjectiveWeights = field(default_factory=ObjectiveWeights)
 
     # Hard constraints
-    num_courses: int = 4
+    num_courses: int = 4  # Deprecated: use total_credits instead
+    total_credits: float = 4.0
     earliest_class_time: str = "08:00"  # HH:MM format
     required_courses: List[str] = field(default_factory=list)
     user_class_year: Optional[str] = None  # 'first_year', 'sophomore', 'junior', 'senior', or None
@@ -207,9 +208,9 @@ class SolverConfig:
         # Validate weights
         self.weights.validate()
 
-        # Validate num_courses
-        if not (1 <= self.num_courses <= 10):
-            raise ValueError("num_courses must be between 1 and 10")
+        # Validate total_credits
+        if self.total_credits <= 0 or self.total_credits > 20:
+            raise ValueError("total_credits must be between 0 and 20")
 
         # Validate earliest_class_time format
         if not self._is_valid_time_format(self.earliest_class_time):
@@ -350,6 +351,7 @@ class SolverConfig:
         config = cls(
             weights=weights,
             num_courses=constraints.get('num_courses', 4),
+            total_credits=float(constraints.get('total_credits', constraints.get('num_courses', 4))),
             earliest_class_time=constraints.get('earliest_class_time', '08:00'),
             required_courses=constraints.get('required_courses', []),
             user_class_year=user_class_year,
@@ -377,6 +379,7 @@ class SolverConfig:
             'objective_weights': self.weights.to_dict(),
             'constraints': {
                 'num_courses': self.num_courses,
+                'total_credits': self.total_credits,
                 'earliest_class_time': self.earliest_class_time,
                 'required_courses': self.required_courses,
                 'useful_attributes': {

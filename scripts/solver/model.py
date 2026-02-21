@@ -56,6 +56,9 @@ class Section:
     # Optional: Risk metrics for risk-averse optimization
     risk_metrics: Optional[Dict[str, float]] = None
 
+    # Credit value for this section (used by per-credit load constraint)
+    credits: float = 0.0
+
     @classmethod
     def from_pipeline_output(cls, section_dict: dict) -> 'Section':
         """
@@ -132,6 +135,9 @@ class Section:
         component = section_dict.get('component', '')
         linked_sections = section_dict.get('linked_sections', [])
 
+        # Extract credit value
+        credits = float(section_dict.get('credits') or 0.0)
+
         return cls(
             section_id=section_id,
             course_id=course_id or 'UNKNOWN',
@@ -148,7 +154,8 @@ class Section:
             cross_listings=cross_listings,
             component=component,
             linked_sections=linked_sections,
-            risk_metrics=risk_metrics
+            risk_metrics=risk_metrics,
+            credits=credits
         )
 
     def has_attribute(self, attr: str) -> bool:
@@ -187,6 +194,19 @@ def load_sections(pipeline_output_path: str) -> List[Section]:
     with open(path) as f:
         data = json.load(f)
 
+    # First pass: build max-credit-per-course map across ALL sections (including
+    # N-type linked lectures that are later skipped). This corrects enrollment
+    # sections (DIS/LAB) that carry 0.0 credits because the pipeline hasn't yet
+    # propagated the linked LEC's credit value into them.
+    max_credits_by_course: Dict[str, float] = {}
+    for course in data.get('courses', []):
+        for sec in course.get('sections', []):
+            cid = sec.get('course_id')
+            if cid:
+                c = float(sec.get('credits') or 0.0)
+                if c > max_credits_by_course.get(cid, 0.0):
+                    max_credits_by_course[cid] = c
+
     sections = []
     skipped_no_schedule = 0
     skipped_non_enrollment = 0
@@ -222,7 +242,19 @@ def load_sections(pipeline_output_path: str) -> List[Section]:
                     error_samples.append((identifier, str(e)))
                 skipped_errors += 1
 
+    # Second pass: apply max-credit override to any enrollment section that
+    # still carries 0.0 credits (pre-pipeline-rerun workaround).
+    credit_overrides = 0
+    for section in sections:
+        if section.credits == 0.0:
+            best = max_credits_by_course.get(section.course_id, 0.0)
+            if best > 0.0:
+                section.credits = best
+                credit_overrides += 1
+
     print(f"  Loaded {len(sections)} sections")
+    if credit_overrides > 0:
+        print(f"  Applied credit override to {credit_overrides} enrollment sections (run pipeline to fix permanently)")
 
     if skipped_non_enrollment > 0:
         print(f"  Skipped {skipped_non_enrollment} non-enrollment sections (linked lecture/lab time merged into enrollment sections)")
@@ -295,8 +327,16 @@ def prefilter_sections(
     removed_title_kw = 0
     removed_attr = 0
     removed_catalog = 0
+    removed_zero_credit = 0
+
+    required_set = set(config.required_courses) if config.required_courses else set()
 
     for section in sections:
+        # Required courses bypass all filters
+        if section.course_id in required_set:
+            filtered.append(section)
+            continue
+
         # Check 1: Time filter - classes before earliest allowed time
         too_early = False
         for start, end in section.integer_schedule:
@@ -364,7 +404,16 @@ def prefilter_sections(
                 removed_attr += 1
                 continue
 
-        # Check 4: Catalog number patterns filter
+        # Check 4: Zero-credit filter — exclude sections with 0 credits.
+        # After load_sections applies the max-credit override, any section that
+        # still has 0.0 credits is genuinely 0-credit (e.g. ROTC labs, optional
+        # seminars). Adding them for free would inflate the course count without
+        # contributing to the credit target.
+        if section.credits <= 0.0:
+            removed_zero_credit += 1
+            continue
+
+        # Check 5: Catalog number patterns filter
         if excluded_numbers:
             # Extract catalog number from course_id (e.g., "EDUC-75" -> "75")
             match = re.search(r'-(\d+[A-Z]*)$', section.course_id)
@@ -387,6 +436,8 @@ def prefilter_sections(
         print(f"  Filtered out {removed_attr} sections (attribute flags)")
     if removed_catalog > 0:
         print(f"  Filtered out {removed_catalog} sections (catalog number pattern)")
+    if removed_zero_credit > 0:
+        print(f"  Filtered out {removed_zero_credit} sections (0-credit, pin to include)")
 
     return filtered
 
@@ -503,7 +554,7 @@ class ScheduleSolver:
         is_feasible, error_msg = validate_feasibility(
             self.sections,
             self.config.required_courses,
-            self.config.num_courses
+            self.config.total_credits
         )
         if not is_feasible:
             raise ValueError(f"Problem is infeasible: {error_msg}")
@@ -530,13 +581,14 @@ class ScheduleSolver:
         add_conflict_constraints(self.model, self.variables, self.conflicts)
         print(f"     Conflict constraints ({len(self.conflicts)} pairs)")
 
-        # 2. Exactly N courses
+        # 2. Credit load constraint
         add_course_load_constraint(
             self.model,
             self.variables,
-            self.config.num_courses
+            self.sections,
+            self.config.total_credits
         )
-        print(f"    - Course load (exactly {self.config.num_courses} courses)")
+        print(f"    - Credit load (target: {self.config.total_credits} credits)")
 
         # 3. Required courses
         if self.config.required_courses:
@@ -641,7 +693,7 @@ class ScheduleSolver:
                     if status == cp_model.INFEASIBLE:
                         print("\n No feasible schedule found.")
                         print("\nTroubleshooting suggestions:")
-                        print("  - Reduce num_courses")
+                        print("  - Reduce total_credits")
                         print("  - Relax days_off constraint")
                         print("  - Remove conflicting required_courses")
                         print("  - Adjust earliest_class_time")

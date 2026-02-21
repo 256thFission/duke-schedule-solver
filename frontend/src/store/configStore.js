@@ -17,7 +17,8 @@ const useConfigStore = create((set) => ({
     user_class_year: null,
     completed_courses: [],
     required_courses: [],
-    num_courses: 4,
+    required_course_credits: {},
+    total_credits: 4.0,
     weights: {
       difficulty_target: 5,
       workload_target: 5,
@@ -115,23 +116,31 @@ const useConfigStore = create((set) => ({
       graduationRequirements,
     })),
 
-  addRequiredCourse: (courseId) =>
+  addRequiredCourse: (courseId, credits = 1.0) =>
     set((state) => ({
       config: {
         ...state.config,
         required_courses: [...state.config.required_courses, courseId],
+        required_course_credits: {
+          ...state.config.required_course_credits,
+          [courseId]: credits,
+        },
       },
     })),
 
   removeRequiredCourse: (courseId) =>
-    set((state) => ({
-      config: {
-        ...state.config,
-        required_courses: state.config.required_courses.filter(
-          (id) => id !== courseId
-        ),
-      },
-    })),
+    set((state) => {
+      const { [courseId]: _, ...restCredits } = state.config.required_course_credits;
+      return {
+        config: {
+          ...state.config,
+          required_courses: state.config.required_courses.filter(
+            (id) => id !== courseId
+          ),
+          required_course_credits: restCredits,
+        },
+      };
+    }),
 
   toggleAttribute: (attribute) =>
     set((state) => {
@@ -256,7 +265,8 @@ const useConfigStore = create((set) => ({
           user_class_year: 'sophomore',
           completed_courses: demoMatchedCourses,
           required_courses: ['STA-440L'],
-          num_courses: 4,
+          required_course_credits: { 'STA-440L': 1.0 },
+          total_credits: 4.0,
           weights: {
             difficulty_target: 1,
             workload_target: 1,
@@ -269,7 +279,7 @@ const useConfigStore = create((set) => ({
             weekdays_only: true,
           },
           requirements: {
-            attributes: ['QS', 'R'],
+            attributes: graduationRequirements.needed_attributes,
             min_count: 1,
           },
         },
@@ -352,7 +362,8 @@ const useConfigStore = create((set) => ({
         user_class_year: null,
         completed_courses: [],
         required_courses: [],
-        num_courses: 4,
+        required_course_credits: {},
+        total_credits: 4.0,
         weights: {
           difficulty_target: 5,
           workload_target: 5,

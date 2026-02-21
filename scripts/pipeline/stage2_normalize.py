@@ -437,6 +437,7 @@ def link_linked_sections(sections: List[Dict]) -> List[Dict]:
                     e_sec.get('solver_schedule'),
                     linked_n.get('solver_schedule')
                 )
+                e_sec['credits'] = (e_sec.get('credits') or 0.0) + (linked_n.get('credits') or 0.0)
                 e_sec['linked_sections'] = [{
                     'section': linked_n['section'],
                     'component': linked_n.get('component', ''),
@@ -480,6 +481,9 @@ def link_linked_sections(sections: List[Dict]) -> List[Dict]:
                     })
 
                 e_sec['solver_schedule'] = composite_sched
+                e_sec['credits'] = (e_sec.get('credits') or 0.0) + sum(
+                    (n_sec.get('credits') or 0.0) for n_sec in matched_n
+                )
                 e_sec['linked_sections'] = linked_info
                 composite_section_count += 1
 

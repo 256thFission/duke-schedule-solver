@@ -25,6 +25,7 @@ const steps = [
 
 function App() {
   const { currentStep, config, error, applyDemoMode } = useConfigStore();
+  const demoAvailable = config.completed_courses.length === 0;
 
   const CurrentStepComponent = steps[currentStep - 1].component;
 
@@ -57,38 +58,40 @@ function App() {
 
       {/* Footer */}
       <footer style={{ textAlign: 'center', marginTop: 60, fontSize: 'var(--font-sm)', color: 'var(--c-text-muted)' }}>
-        <p>Built by <a href="mailto:thephilliplin@gmail.com" style={{ color: 'inherit', textDecoration: 'underline' }}>Phillip Lin</a>. Hire me if it helps!</p>
+        <p>Built by <a href="https://philliplin.dev" target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>Phillip Lin</a>. <a href="mailto:thephilliplin@gmail.com" style={{ color: 'inherit', textDecoration: 'underline' }}>Hire me if it helps!</a></p>
         {config.completed_courses.length > 0 && (
           <p style={{ marginTop: 'var(--sp-sm)', fontSize: 'var(--font-xs)' }}>
             {config.completed_courses.length} completed courses loaded |{' '}
             {config.required_courses.length} must-takes selected
           </p>
         )}
-        <div style={{ marginTop: 'var(--sp-lg)' }}>
-          <button
-            onClick={applyDemoMode}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 'var(--sp-sm)',
-              border: '2px solid var(--c-text-muted)',
-              backgroundColor: 'var(--c-surface-dim)',
-              color: 'var(--c-text)',
-              borderRadius: 'var(--r-pill)',
-              padding: 'var(--sp-sm) var(--sp-md)',
-              fontWeight: 700,
-              cursor: 'pointer',
-            }}
-          >
-            <img
-              src="/doodle/star.svg"
-              alt=""
-              aria-hidden="true"
-              style={{ width: 16, height: 16 }}
-            />
-            Demo as me!
-          </button>
-        </div>
+        {demoAvailable && (
+          <div style={{ marginTop: 'var(--sp-lg)' }}>
+            <button
+              onClick={applyDemoMode}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 'var(--sp-sm)',
+                border: '2px solid var(--c-text-muted)',
+                backgroundColor: 'var(--c-surface-dim)',
+                color: 'var(--c-text)',
+                borderRadius: 'var(--r-pill)',
+                padding: 'var(--sp-sm) var(--sp-md)',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              <img
+                src="/doodle/star.svg"
+                alt=""
+                aria-hidden="true"
+                style={{ width: 16, height: 16 }}
+              />
+              Press to Demo With My Schedule!
+            </button>
+          </div>
+        )}
       </footer>
     </div>
   );
