@@ -1,0 +1,20 @@
+# Duke Schedule Solver — Production Backend Dependencies
+# (excludes gradio and other dev-only packages)
+
+# Binary Integer Programming Solver
+ortools>=9.7.0
+
+# Data processing
+pandas>=1.5.0
+numpy>=1.23.0
+
+# PDF parsing
+pdfplumber>=0.10.0
+
+# FastAPI Backend
+fastapi>=0.104.0
+uvicorn>=0.24.0
+python-multipart>=0.0.6
+
+# AWS S3 for analytics
+boto3>=1.26.0

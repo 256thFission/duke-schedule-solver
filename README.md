@@ -1,16 +1,36 @@
 # Duke Course Schedule Solver
 
-Data preparation pipeline for optimizing Duke course schedules based on course evaluations and catalog data.
+Complete system for optimizing Duke course schedules using Binary Integer Programming (BIP). Combines data preparation pipeline with constraint-based optimization to generate optimal schedules based on course quality metrics and user preferences.
+
+---
 
 
 ---
 
 ## Quick Start
 
-### 1. Run the Data Prep Pipeline
+### 1. Install Dependencies
 
 ```bash
-python scripts/run_pipeline.py --config path/to/config.json
+pip install -r requirements.txt
+```
+
+### 2. Run the Data Prep Pipeline
+
+```bash
+python scripts/run_pipeline.py --config config/pipeline_config.json
+```
+
+### 3. Generate Optimal Schedules
+
+```bash
+python solver_cli.py
+```
+
+Or with custom preferences:
+
+```bash
+python solver_cli.py --config my_preferences.json --calendar
 ```
 
 
@@ -96,6 +116,13 @@ data/
     "enrolled": 45,
     "available": 3
   },
+  "prerequisites": {
+    "courses": ["COMPSCI-101", "COMPSCI-102"],
+    "corequisites": [],
+    "recommended": [],
+    "has_consent_requirement": false,
+    "has_equivalent_option": true
+  },
   "metrics": {
     "intellectual_stimulation": {
       "raw_mean": 4.52,
@@ -139,10 +166,95 @@ data/
 - `z = 0`: Average
 - `z < 0`: Below average
 
+**prerequisites**: Course requirements parsed from catalog descriptions
+- `courses`: Hard prerequisite course codes (e.g., `["COMPSCI-101", "MATH-216"]`)
+- `corequisites`: Courses that must be taken concurrently
+- `recommended`: Suggested but not required prerequisites
+- `has_consent_requirement`: True if instructor consent is needed
+- `has_equivalent_option`: True if "or equivalent" is mentioned
+
+---
+
+## Solver Usage
+
+### Basic Usage
+
+The solver reads the pipeline output and generates optimal schedules based on your preferences.
+
+```bash
+# Use default configuration
+python solver_cli.py
+
+# Custom configuration
+python solver_cli.py --config my_config.json
+
+# Show calendar view
+python solver_cli.py --calendar
+
+# Export to JSON
+python solver_cli.py --output results/schedules.json
+```
+
+### Configuration Example
+
+Create a custom configuration file (e.g., `my_preferences.json`):
+
+```json
+{
+  "objective_weights": {
+    "intellectual_stimulation": 0.40,
+    "overall_course_quality": 0.30,
+    "overall_instructor_quality": 0.20,
+    "course_difficulty": 0.00,
+    "hours_per_week": -0.10
+  },
+  "constraints": {
+    "num_courses": 4,
+    "earliest_class_time": "09:00",
+    "required_courses": ["MATH-216", "COMPSCI-201"],
+    "useful_attributes": {
+      "enabled": true,
+      "attributes": ["W", "QS"],
+      "min_courses": 1
+    },
+    "days_off": {
+      "enabled": true,
+      "min_days_off": 2,
+      "weekdays_only": true
+    }
+  },
+  "solver_params": {
+    "max_time_seconds": 60,
+    "num_solutions": 10
+  }
+}
+```
+
+### Supported Constraints
+
+- **Course Load**: Exactly N courses
+- **Time Conflicts**: No overlapping classes
+- **Required Courses**: Must take specific courses
+- **Useful Attributes**: Require courses with certain attributes (W, QS, NS, etc.)
+- **Days Off**: Minimum number of days with zero classes
+- **Earliest Class Time**: Filter classes before specified time
+
+### Objective Metrics
+
+Maximize weighted combination of:
+- Intellectual stimulation
+- Overall course quality
+- Overall instructor quality
+- Course difficulty (can be positive or negative weight)
+- Hours per week (negative weight = prefer less work)
+
+All metrics are z-scores (standardized across all courses).
+
 ---
 
 ## Documentation
 
+- **solver-implementation-plan.md** - Complete solver architecture and design
 - **data-pipeline.md** - Technical pipeline details, mathematical foundations
 - **manifest.md** - Project structure, input/output specifications
 

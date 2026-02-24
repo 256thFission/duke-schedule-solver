@@ -1,0 +1,33 @@
+name: solver
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  # Python version
+  - python=3.10
+
+  # Binary Integer Programming Solver
+  - ortools>=9.7.0
+
+  # Data processing
+  - pandas>=1.5.0
+  - numpy>=1.23.0
+
+  # CLI formatting
+  - colorama>=0.4.6
+
+  # Web UI (Gradio - legacy)
+  - gradio>=6.0.0
+
+  # PDF parsing
+  - pdfplumber>=0.10.0
+
+  # FastAPI Backend (new)
+  - fastapi>=0.104.0
+  - uvicorn>=0.24.0
+  - python-multipart>=0.0.6
+
+  # Additional dependencies via pip if not available in conda
+  - pip
+  - pip:
+    - python-multipart  # Ensure this is available
