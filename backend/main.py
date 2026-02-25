@@ -341,7 +341,6 @@ async def solve_schedule(config: SolverRequest) -> ScheduleResponse:
         # Step 6: Build complete solver config
         solver_config = SolverConfig(
             weights=solver_weights,
-            num_courses=round(config.total_credits),
             total_credits=config.total_credits,
             earliest_class_time=config.constraints.earliest_class_time,
             required_courses=config.required_courses,

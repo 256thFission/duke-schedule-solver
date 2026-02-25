@@ -7,11 +7,6 @@ based on course quality metrics and user constraints.
 
 from .config import SolverConfig, ObjectiveWeights
 from .model import Section, ScheduleSolver, load_sections, prefilter_sections
-from .results import (
-    format_schedule_text,
-    format_schedule_calendar,
-    export_schedule_json
-)
 
 __all__ = [
     'SolverConfig',
@@ -20,7 +15,4 @@ __all__ = [
     'ScheduleSolver',
     'load_sections',
     'prefilter_sections',
-    'format_schedule_text',
-    'format_schedule_calendar',
-    'export_schedule_json'
 ]

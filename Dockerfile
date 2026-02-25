@@ -25,8 +25,8 @@ COPY dataslim/processed/processed_courses.json dataslim/processed/processed_cour
 # Python path: backend/ for local imports (schemas, utils), /app for scripts/
 ENV PYTHONPATH="/app/backend:/app"
 
-# Environment defaults (override at runtime)
-ENV ALLOWED_ORIGINS="*"
+# ALLOWED_ORIGINS must be set at runtime to your frontend domain (e.g. https://yourapp.com)
+# Defaults to http://localhost:5173 if unset — do NOT use "*" in production
 ENV UVICORN_WORKERS=2
 
 EXPOSE 8000

@@ -2,6 +2,9 @@
 *v2.csv
 data/*
 dataslim/*
+# Sensitive files
+*.pem
+*.pdf
 # Python
 __pycache__/
 *.pyc

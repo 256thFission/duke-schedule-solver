@@ -174,7 +174,6 @@ class SolverConfig:
     weights: ObjectiveWeights = field(default_factory=ObjectiveWeights)
 
     # Hard constraints
-    num_courses: int = 4  # Deprecated: use total_credits instead
     total_credits: float = 4.0
     earliest_class_time: str = "08:00"  # HH:MM format
     required_courses: List[str] = field(default_factory=list)
@@ -350,8 +349,7 @@ class SolverConfig:
         # Build config
         config = cls(
             weights=weights,
-            num_courses=constraints.get('num_courses', 4),
-            total_credits=float(constraints.get('total_credits', constraints.get('num_courses', 4))),
+            total_credits=float(constraints.get('total_credits', 4)),
             earliest_class_time=constraints.get('earliest_class_time', '08:00'),
             required_courses=constraints.get('required_courses', []),
             user_class_year=user_class_year,
@@ -378,7 +376,6 @@ class SolverConfig:
         data = {
             'objective_weights': self.weights.to_dict(),
             'constraints': {
-                'num_courses': self.num_courses,
                 'total_credits': self.total_credits,
                 'earliest_class_time': self.earliest_class_time,
                 'required_courses': self.required_courses,
