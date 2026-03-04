@@ -5,15 +5,11 @@ Contains critical weight conversion logic and helper functions.
 """
 
 import logging
-import sys
 import json
 from pathlib import Path
 from typing import List, Optional, Set, Dict
 
 logger = logging.getLogger(__name__)
-
-# Add parent directory to path to import solver modules
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from scripts.solver.config import ObjectiveWeights
 from schemas import WeightsInput

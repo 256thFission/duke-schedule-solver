@@ -44,7 +44,7 @@ export default function Step0Year() {
     <div className="step-container">
       <h2 className="step-title">When did you start at Duke?</h2>
       <p className="step-subtitle">
-        This cannot be changed later without restarting ;-;.
+        This cannot be changed later without restarting.
       </p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-lg)' }}>

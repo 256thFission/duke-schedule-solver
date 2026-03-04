@@ -36,7 +36,7 @@
   "constraints": {
     "num_courses": 4,
     "earliest_class_time": "07:00",
-    "required_courses": ["STA-402L"],
+    "required_courses": [],
 
     "user_class_year": null,
     "_comment_user_class_year": "Set to 'first_year', 'sophomore', 'junior', or 'senior' to filter class-year-restricted courses. null = show all courses regardless of restrictions.",

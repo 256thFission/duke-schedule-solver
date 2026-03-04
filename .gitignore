@@ -5,6 +5,15 @@ dataslim/*
 # Sensitive files
 *.pem
 *.pdf
+.env
+.env.*
+
+# Claude Code
+.claude/
+
+# OS artifacts
+.DS_Store
+Thumbs.db
 
 # Editor / IDE
 .vscode/

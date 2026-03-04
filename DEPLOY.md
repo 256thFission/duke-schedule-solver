@@ -72,7 +72,7 @@ ssh -i <YOUR_KEY_PATH> ubuntu@<YOUR_ELASTIC_IP> "cd ~/duke-schedule-solver && \
   sudo docker build -t duke-solver-api . && \
   sudo docker stop duke-solver && sudo docker rm duke-solver && \
   sudo docker run -d --name duke-solver --restart unless-stopped \
-    -p 8000:8000 -e ALLOWED_ORIGINS='*' -e UVICORN_WORKERS=2 \
+    -p 8000:8000 -e ALLOWED_ORIGINS='https://<YOUR_DOMAIN>' -e UVICORN_WORKERS=2 \
     duke-solver-api"
 ```
 
@@ -127,7 +127,7 @@ curl https://<YOUR_DOMAIN>/
 | Variable | Where | Default | Description |
 |----------|-------|---------|-------------|
 | `VITE_API_URL` | Frontend build | `http://localhost:8000` | Backend API URL (baked at build time) |
-| `ALLOWED_ORIGINS` | Docker container | `*` | CORS allowed origins (comma-separated) |
+| `ALLOWED_ORIGINS` | Docker container | `http://localhost:5173` | CORS allowed origins (comma-separated) |
 | `UVICORN_WORKERS` | Docker container | `2` | Number of API worker processes |
 | `ANALYTICS_BUCKET` | Docker container | _(unset = no-op)_ | S3 bucket for analytics events |
 

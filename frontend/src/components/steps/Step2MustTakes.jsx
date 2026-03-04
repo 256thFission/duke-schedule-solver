@@ -91,7 +91,7 @@ export default function Step2MustTakes() {
           })}
         </div>
         <p className="field-hint">
-          If you take more than 5 credits you should probably plan with a human advisor...
+          If you take more than 5 credits, consider consulting a human advisor.
         </p>
       </fieldset>
 
@@ -99,7 +99,7 @@ export default function Step2MustTakes() {
       <fieldset className="field-gap">
         <legend>Pin Must-Take Courses</legend>
         <p className="field-hint">
-          Pin your degree reqs and favorite electives here. Or leave it empty ig.
+          Pin your degree reqs and favorite electives here, or leave it empty.
         </p>
 
         <label htmlFor="course-search">Search:</label>

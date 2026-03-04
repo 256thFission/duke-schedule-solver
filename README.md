@@ -22,6 +22,7 @@ of course quality metrics (from evaluations) subject to time/requirement constra
 
 ```bash
 conda env create -f environment.yml && conda activate solver
+pip install -e .  # install project packages for imports
 cd backend && python -m uvicorn main:app --reload --port 8000
 ```
 
@@ -52,4 +53,4 @@ See [DEPLOY.md](DEPLOY.md) for EC2/Docker deployment instructions.
 
 ## License
 
-[TBD]
+MIT — see [LICENSE](LICENSE).

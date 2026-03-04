@@ -2,12 +2,8 @@
 """Main pipeline orchestrator for Duke course data preparation."""
 import json
 import os
-import sys
 import argparse
 from pathlib import Path
-
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from scripts.pipeline import stage1_ingest
 from scripts.pipeline import stage2_normalize

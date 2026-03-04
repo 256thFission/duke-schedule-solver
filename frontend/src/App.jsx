@@ -37,7 +37,7 @@ function App() {
           Duke Schedule Solver
         </h1>
         <p style={{ fontSize: 'var(--font-base)', color: 'var(--c-text-light)' }}>
-          Mathematically optimize the liberal arts education :D
+          Mathematically optimize the liberal arts education.
         </p>
       </header>
 

@@ -9,7 +9,6 @@ Provides 3 RESTful endpoints:
 
 import logging
 import os
-import sys
 import tempfile
 from pathlib import Path
 from typing import List
@@ -18,9 +17,6 @@ logger = logging.getLogger(__name__)
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-
-# Add parent directory to path to import solver modules
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from scripts.extract_transcript_courses import extract_courses_from_transcript
 from scripts.solver.model import load_sections, prefilter_sections, ScheduleSolver
