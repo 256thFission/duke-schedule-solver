@@ -10,9 +10,7 @@ from typing import List, Dict, Set
 import json
 
 
-# =========================================================================
 # Shared data structures
-# =========================================================================
 
 @dataclass
 class RequirementProgress:
@@ -41,9 +39,7 @@ class RequirementProgress:
         return min(100.0, (self.completed / self.required) * 100)
 
 
-# =========================================================================
 # Base class for both curricula
-# =========================================================================
 
 @dataclass
 class BaseGraduationRequirements:
@@ -151,9 +147,7 @@ class BaseGraduationRequirements:
         }
 
 
-# =========================================================================
 # Curriculum 2000 (pre-Fall 2025)
-# =========================================================================
 
 AREAS_OF_KNOWLEDGE = {
     'ALP': 'Arts, Literature, and Performance',
@@ -219,9 +213,7 @@ class GraduationRequirements(BaseGraduationRequirements):
         )
 
 
-# =========================================================================
 # Curriculum 2025 (Fall 2025+)
-# =========================================================================
 
 LIBERAL_ARTS_DISTRIBUTION = {
     'CE': 'Creating & Engaging with Art',
@@ -283,9 +275,7 @@ class GraduationRequirements2025(BaseGraduationRequirements):
         )
 
 
-# =========================================================================
 # Transcript analysis (shared logic, parameterized by curriculum)
-# =========================================================================
 
 def _analyze_transcript(
     transcript_courses: List[str],
@@ -343,9 +333,7 @@ def analyze_transcript_requirements_2025(
     return _analyze_transcript(transcript_courses, pipeline_data_path, 'curr2025', GraduationRequirements2025)
 
 
-# =========================================================================
 # HTML summary (for legacy Gradio UI — kept for backward compatibility)
-# =========================================================================
 
 def get_requirement_summary_html(requirements: GraduationRequirements) -> str:
     """Generate an HTML summary of requirement progress."""

@@ -9,9 +9,7 @@ from .utils import parse_prerequisites
 from .time_encoder import encode_schedule
 
 
-# =============================================================================
 # ATTRIBUTE TAG DEFINITIONS
-# =============================================================================
 # Based on Duke Registrar data and Curriculum 2025 transition
 
 # Component types (COMP-) - instructional format
@@ -37,9 +35,7 @@ ATTR_PROGRAM_PREFIXES = {
     'ETH', 'GH', 'COMPA'
 }
 
-# =============================================================================
 # CURRICULUM REQUIREMENT MAPPINGS
-# =============================================================================
 
 # Curriculum 2000 (pre-Fall 2025) - Areas of Knowledge
 USE_REQUIREMENTS = {

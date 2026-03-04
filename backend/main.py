@@ -43,9 +43,7 @@ from utils import (
 import analytics
 
 
-# ---------------------------------------------------------------------------
 # FastAPI Application
-# ---------------------------------------------------------------------------
 
 app = FastAPI(
     title="Duke Schedule Solver API",
@@ -66,17 +64,13 @@ app.add_middleware(
 )
 
 
-# ---------------------------------------------------------------------------
 # Constants
-# ---------------------------------------------------------------------------
 
 PROJECT_ROOT = Path(__file__).parent.parent
 DATA_PATH = str(PROJECT_ROOT / "dataslim" / "processed" / "processed_courses.json")
 
 
-# ---------------------------------------------------------------------------
 # Endpoint 1: POST /parse-transcript
-# ---------------------------------------------------------------------------
 
 @app.post("/parse-transcript", response_model=TranscriptResponse)
 async def parse_transcript(
@@ -208,9 +202,7 @@ async def parse_transcript(
         )
 
 
-# ---------------------------------------------------------------------------
 # Endpoint 2: GET /search-courses
-# ---------------------------------------------------------------------------
 
 @app.get("/search-courses", response_model=CourseSearchResponse)
 async def search_courses_endpoint(
@@ -236,9 +228,7 @@ async def search_courses_endpoint(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ---------------------------------------------------------------------------
 # Endpoint 3: POST /solve
-# ---------------------------------------------------------------------------
 
 @app.post("/solve", response_model=ScheduleResponse)
 async def solve_schedule(config: SolverRequest) -> ScheduleResponse:
@@ -427,9 +417,7 @@ async def solve_schedule(config: SolverRequest) -> ScheduleResponse:
         )
 
 
-# ---------------------------------------------------------------------------
 # Endpoint 4: POST /track-removal
-# ---------------------------------------------------------------------------
 
 @app.post("/track-removal", status_code=204)
 async def track_removal(body: RemovalRequest) -> None:
@@ -446,9 +434,7 @@ async def track_removal(body: RemovalRequest) -> None:
     )
 
 
-# ---------------------------------------------------------------------------
 # Health check
-# ---------------------------------------------------------------------------
 
 @app.get("/")
 async def root():
@@ -460,6 +446,4 @@ async def root():
     }
 
 
-# ---------------------------------------------------------------------------
 # Run with: uvicorn backend.main:app --reload
-# ---------------------------------------------------------------------------

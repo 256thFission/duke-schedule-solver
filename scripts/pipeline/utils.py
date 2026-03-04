@@ -3,9 +3,7 @@ import re
 from typing import List, Dict, Optional, Set, Tuple
 
 
-# =============================================================================
 # DEPARTMENT NAME TO CODE MAPPING
-# =============================================================================
 # Maps full department names (as they appear in catalog descriptions) to
 # their standard subject codes. Used for prerequisite parsing.
 
@@ -405,9 +403,7 @@ def parse_evaluation_course_code(course_str: str) -> Dict[str, any]:
     }
 
 
-# =============================================================================
 # PREREQUISITE PARSING
-# =============================================================================
 
 # Valid subject codes (uppercase abbreviations found in catalog)
 VALID_SUBJECT_CODES = {
