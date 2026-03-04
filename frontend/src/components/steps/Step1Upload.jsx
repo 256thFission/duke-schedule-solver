@@ -167,7 +167,6 @@ export default function Step1Upload() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState(demoUploadResult || null);
   const [error, setError] = useState(null);
-  const [researchConsent, setResearchConsent] = useState(true);
 
   // Consume and clear the demo upload result from the store so it doesn't
   // persist across re-renders or navigation back to this step.
@@ -185,7 +184,7 @@ export default function Step1Upload() {
     setError(null);
 
     try {
-      const result = await api.parseTranscript(file, config.matriculation_year || 'pre2025', researchConsent);
+      const result = await api.parseTranscript(file, config.matriculation_year || 'pre2025');
 
       if (result.success && result.matched > 0) {
         setCompletedCourses(

@@ -7,12 +7,14 @@ Provides 3 RESTful endpoints:
 3. POST /solve - Generate optimal schedules from configuration
 """
 
+import logging
 import os
 import sys
 import tempfile
-import traceback
 from pathlib import Path
 from typing import List
+
+logger = logging.getLogger(__name__)
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -84,24 +86,8 @@ DATA_PATH = str(PROJECT_ROOT / "dataslim" / "processed" / "processed_courses.jso
 async def parse_transcript(
     file: UploadFile = File(...),
     matriculation_year: str = Query(default="pre2025", description="'pre2025' or '2025plus'"),
-    save_for_research: bool = Query(default=False, description="Save anonymized transcript to S3 for research (user consent required)"),
 ) -> TranscriptResponse:
-    """
-    Extract courses from an uploaded Duke transcript PDF.
-
-    Process:
-    1. Save uploaded PDF to temporary file
-    2. Extract course codes using existing transcript parser
-    3. Match extracted courses against available catalog
-    4. Infer class year based on course count
-    5. Return matched courses and metadata
-
-    Args:
-        file: Uploaded PDF file
-
-    Returns:
-        TranscriptResponse with matched courses and class year
-    """
+    """Extract courses from an uploaded Duke transcript PDF."""
     if not file.filename.endswith('.pdf'):
         raise HTTPException(status_code=400, detail="File must be a PDF")
 
@@ -111,10 +97,6 @@ async def parse_transcript(
             content = await file.read()
             tmp_file.write(content)
             tmp_path = tmp_file.name
-
-        # Persist anonymized transcript to S3 if user consented
-        if save_for_research:
-            analytics.save_transcript(content)
 
         # Extract courses from PDF
         extracted_courses = extract_courses_from_transcript(tmp_path)
@@ -204,7 +186,7 @@ async def parse_transcript(
                         overall_progress_percent=overall_progress
                     )
             except Exception as e:
-                print(f"Warning: Could not analyze graduation requirements: {e}")
+                logger.warning("Could not analyze graduation requirements: %s", e)
 
         return TranscriptResponse(
             success=True,
@@ -218,8 +200,7 @@ async def parse_transcript(
         )
 
     except Exception as e:
-        print(f"Error processing transcript: {e}")
-        traceback.print_exc()
+        logger.exception("Error processing transcript")
         return TranscriptResponse(
             success=False,
             completed_courses=[],
@@ -241,22 +222,7 @@ async def search_courses_endpoint(
     exclude: List[str] = Query(default=[], description="Course IDs to exclude from results"),
     limit: int = Query(default=20, ge=1, le=100, description="Maximum results to return")
 ) -> CourseSearchResponse:
-    """
-    Search for courses by query string.
-
-    Supports flexible matching:
-    - Substring: "CS" matches "CS-101", "CS-201", etc.
-    - Normalized: "CS 101" matches "CS-101"
-    - Case-insensitive
-
-    Args:
-        query: Search string
-        exclude: Course IDs to exclude (e.g., already selected)
-        limit: Maximum number of results
-
-    Returns:
-        CourseSearchResponse with matching course IDs
-    """
+    """Search for courses by query string (substring, case-insensitive)."""
     try:
         all_courses = load_course_choices(DATA_PATH)
         course_credits_map = load_course_credits(DATA_PATH)
@@ -270,7 +236,7 @@ async def search_courses_endpoint(
         )
 
     except Exception as e:
-        print(f"Error searching courses: {e}")
+        logger.error("Error searching courses: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -280,23 +246,7 @@ async def search_courses_endpoint(
 
 @app.post("/solve", response_model=ScheduleResponse)
 async def solve_schedule(config: SolverRequest) -> ScheduleResponse:
-    """
-    Generate optimal course schedules from configuration.
-
-    Process:
-    1. Convert frontend weights (1-10 scale) to solver weights (-1.0 to 1.0)
-    2. Build SolverConfig from request
-    3. Load and prefilter course sections
-    4. Run ScheduleSolver
-    5. Score and rank solutions
-    6. Return top schedules with metadata
-
-    Args:
-        config: Complete solver configuration from frontend
-
-    Returns:
-        ScheduleResponse with ranked schedule solutions
-    """
+    """Generate optimal course schedules from the given configuration."""
     try:
         # Step 1: Convert frontend weights to solver weights
         solver_weights = convert_frontend_weights(config.weights)
@@ -357,12 +307,12 @@ async def solve_schedule(config: SolverRequest) -> ScheduleResponse:
         solver_config.validate()
 
         # Step 7: Load and prefilter sections
-        print(f"Loading sections from {DATA_PATH}...")
+        logger.info("Loading sections from %s", DATA_PATH)
         all_sections = load_sections(DATA_PATH)
-        print(f"Loaded {len(all_sections)} sections")
+        logger.info("Loaded %d sections", len(all_sections))
 
         filtered_sections = prefilter_sections(all_sections, solver_config)
-        print(f"After filtering: {len(filtered_sections)} sections")
+        logger.info("After filtering: %d sections", len(filtered_sections))
 
         # Step 7b: Remove banned courses (reroll feature)
         if config.banned_courses:
@@ -370,7 +320,7 @@ async def solve_schedule(config: SolverRequest) -> ScheduleResponse:
             before = len(filtered_sections)
             filtered_sections = [s for s in filtered_sections if s.course_id not in banned_set]
             removed = before - len(filtered_sections)
-            print(f"  Filtered out {removed} sections (banned courses: {config.banned_courses})")
+            logger.info("Filtered out %d sections (banned courses: %s)", removed, config.banned_courses)
 
         if len(filtered_sections) == 0:
             return ScheduleResponse(
@@ -385,11 +335,11 @@ async def solve_schedule(config: SolverRequest) -> ScheduleResponse:
             )
 
         # Step 8: Run solver
-        print("Running solver...")
+        logger.info("Running solver...")
         solver = ScheduleSolver(filtered_sections, solver_config)
         solver.build_model()
         raw_schedules = solver.solve()
-        print(f"Solver found {len(raw_schedules)} schedules")
+        logger.info("Solver found %d schedules", len(raw_schedules))
 
         if not raw_schedules:
             return ScheduleResponse(
@@ -462,7 +412,7 @@ async def solve_schedule(config: SolverRequest) -> ScheduleResponse:
 
     except ValueError as e:
         # Validation errors
-        print(f"Validation error: {e}")
+        logger.warning("Validation error: %s", e)
         return ScheduleResponse(
             success=False,
             schedules=[],
@@ -472,8 +422,7 @@ async def solve_schedule(config: SolverRequest) -> ScheduleResponse:
 
     except Exception as e:
         # Unexpected errors
-        print(f"Error in solver: {e}")
-        traceback.print_exc()
+        logger.exception("Error in solver")
         return ScheduleResponse(
             success=False,
             schedules=[],

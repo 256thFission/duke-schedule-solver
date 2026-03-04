@@ -4,10 +4,13 @@ Backend utilities for the Duke Schedule Solver API.
 Contains critical weight conversion logic and helper functions.
 """
 
+import logging
 import sys
 import json
 from pathlib import Path
 from typing import List, Optional, Set, Dict
+
+logger = logging.getLogger(__name__)
 
 # Add parent directory to path to import solver modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -140,7 +143,7 @@ def load_course_choices(data_path: str = "dataslim/processed/processed_courses.j
 
         return sorted(course_ids)
     except Exception as e:
-        print(f"Error loading course choices: {e}")
+        logger.error("Error loading course choices: %s", e)
         return []
 
 

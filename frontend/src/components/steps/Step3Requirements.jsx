@@ -288,7 +288,7 @@ export default function Step3Requirements() {
               {config.requirements.attributes.map((c) => `[${c}]`).join(' ')}
               {config.requirements.min_count > 0 && (
                 <span>
-                  {' '}!  {config.requirements.min_count} course(s) will beforoced to match one of those codes.
+                  {' '}! {config.requirements.min_count} course(s) will be forced to match one of those codes.
                 </span>
               )}
             </div>

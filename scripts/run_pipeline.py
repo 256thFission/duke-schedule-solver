@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Main pipeline orchestrator for Duke course data preparation."""
 import json
+import os
 import sys
 import argparse
 from pathlib import Path
@@ -107,7 +108,10 @@ def main():
         with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
             json.dump(config, f, indent=2)
             temp_config = f.name
-        run_pipeline(temp_config)
+        try:
+            run_pipeline(temp_config)
+        finally:
+            os.remove(temp_config)
     else:
         run_pipeline(args.config)
 

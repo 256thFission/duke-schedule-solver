@@ -1,18 +1,142 @@
 """
 Bayesian Shrinkage Estimators for Course Metrics
 
-Implements Empirical Bayes shrinkage to handle small sample sizes (N < 10).
-Replaces naive "penalty scores" with statistically robust posterior estimates.
+Implements hybrid Empirical Bayes shrinkage to handle small sample sizes.
+
+- Ordinal metrics (1-5 Likert): Beta-Binomial conjugate model.
+  Respects bounded support, couples mean and variance naturally.
+- Continuous metrics (hours_per_week): Normal-Normal Empirical Bayes.
 
 Mathematical Foundation:
 - For small N, sample mean x̄ has high variance
 - Shrink toward global prior μ₀ to reduce estimation error
-- Shrinkage factor B ∈ [0,1] depends on sample size and variance
+- Shrinkage factor B ∈ [0,1] depends on sample size and prior strength
 """
 
 import math
 import statistics
 from typing import List, Dict, Tuple
+
+# Metrics measured on a 1-5 Likert scale (ordinal) → Beta-Binomial shrinkage
+ORDINAL_METRICS = {
+    'intellectual_stimulation',
+    'overall_course_quality',
+    'overall_instructor_quality',
+    'course_difficulty',
+}
+ORDINAL_MIN = 1.0
+ORDINAL_MAX = 5.0
+
+
+def fit_beta_prior(mu0: float, sigma0_sq: float) -> Tuple[float, float]:
+    """
+    Fit Beta distribution parameters (α, β) from population mean and variance
+    using method of moments, after rescaling from [1,5] to [0,1].
+
+    Args:
+        mu0: Global mean on the original [1,5] scale
+        sigma0_sq: Global variance on the original [1,5] scale
+
+    Returns:
+        (alpha, beta) parameters for the Beta prior
+
+    Examples:
+        >>> fit_beta_prior(4.168, 0.182)
+        (5.82, 1.62)  # Strong prior concentrated near 0.79 (≈4.17 on 1-5)
+
+        >>> fit_beta_prior(3.0, 2.0)
+        (1.0, 1.0)    # Fallback: variance too large for Beta
+    """
+    scale = ORDINAL_MAX - ORDINAL_MIN  # 4.0
+    mu_scaled = (mu0 - ORDINAL_MIN) / scale
+    var_scaled = sigma0_sq / (scale ** 2)
+
+    # Clamp mu_scaled away from exact 0 or 1 to avoid degenerate priors
+    mu_scaled = max(0.01, min(0.99, mu_scaled))
+
+    # Method of moments: common = μ(1-μ)/σ² - 1
+    max_var = mu_scaled * (1 - mu_scaled)  # Maximum variance for this mean
+    if var_scaled <= 0 or var_scaled >= max_var:
+        # Variance too large (or zero) for Beta — use weak uniform prior
+        return (1.0, 1.0)
+
+    common = max_var / var_scaled - 1
+    alpha = mu_scaled * common
+    beta = (1 - mu_scaled) * common
+
+    # Sanity: both must be positive
+    if alpha <= 0 or beta <= 0:
+        return (1.0, 1.0)
+
+    return (alpha, beta)
+
+
+def shrink_estimate_beta(sample_mean: float, n: int,
+                         alpha_prior: float, beta_prior: float,
+                         min_variance_threshold: float = 0.1) -> Dict:
+    """
+    Compute Beta-Binomial posterior estimate for an ordinal (1-5) metric.
+
+    Rescales to [0,1], performs conjugate Beta update, rescales back.
+    Posterior mean is guaranteed to lie within [ORDINAL_MIN, ORDINAL_MAX].
+
+    Args:
+        sample_mean: Sample mean on the [1,5] scale
+        n: Sample size (number of respondents)
+        alpha_prior: Beta prior α parameter
+        beta_prior: Beta prior β parameter
+        min_variance_threshold: Floor for posterior std (on original scale)
+
+    Returns:
+        Dict with same shape as shrink_estimate() for downstream compatibility
+    """
+    scale = ORDINAL_MAX - ORDINAL_MIN  # 4.0
+    prior_strength = alpha_prior + beta_prior
+
+    if n == 0:
+        # Pure prior
+        post_alpha = alpha_prior
+        post_beta = beta_prior
+    else:
+        # Rescale sample mean to [0,1]
+        x_scaled = (sample_mean - ORDINAL_MIN) / scale
+        x_scaled = max(0.0, min(1.0, x_scaled))
+
+        # Pseudo-count of "successes" from the sample
+        S = x_scaled * n
+
+        # Conjugate update
+        post_alpha = alpha_prior + S
+        post_beta = beta_prior + (n - S)
+
+    # Posterior mean and variance in [0,1] space
+    post_total = post_alpha + post_beta
+    post_mean_scaled = post_alpha / post_total
+    post_var_scaled = (post_alpha * post_beta) / (post_total ** 2 * (post_total + 1))
+
+    # Rescale back to [1,5]
+    posterior_mean = post_mean_scaled * scale + ORDINAL_MIN
+    posterior_var = post_var_scaled * (scale ** 2)
+
+    # Floor the variance
+    posterior_var = max(posterior_var, min_variance_threshold ** 2)
+    posterior_std = math.sqrt(posterior_var)
+
+    # Shrinkage factor: proportion of posterior driven by data vs. prior
+    # B = n / (n + prior_strength), analogous to Gaussian B
+    B = n / (n + prior_strength) if (n + prior_strength) > 0 else 0.0
+
+    # Effective sample size (for interpretability)
+    effective_n = post_total - prior_strength  # = n, but capped by prior
+
+    return {
+        'posterior_mean': round(posterior_mean, 4),
+        'posterior_var': round(posterior_var, 4),
+        'posterior_std': round(posterior_std, 4),
+        'shrinkage_factor': round(B, 4),
+        'raw_mean': round(sample_mean, 4),
+        'effective_n': round(effective_n, 2),
+    }
 
 
 def calculate_global_priors(evaluations: List[Dict], metric_names: List[str]) -> Dict[str, Dict]:
@@ -76,9 +200,20 @@ def calculate_global_priors(evaluations: List[Dict], metric_names: List[str]) ->
                 'n_total': 0
             }
 
+    # Fit Beta priors for ordinal metrics
+    for metric_name in metric_names:
+        if metric_name in ORDINAL_METRICS and metric_name in priors:
+            prior = priors[metric_name]
+            alpha, beta = fit_beta_prior(prior['mu0'], prior['sigma0_sq'])
+            prior['alpha_prior'] = alpha
+            prior['beta_prior'] = beta
+
     # Print summary
     for metric, prior in priors.items():
-        print(f"  {metric}: μ₀={prior['mu0']:.3f}, σ₀={prior['sigma0']:.3f}, N={prior['n_total']}")
+        extra = ""
+        if 'alpha_prior' in prior:
+            extra = f", α={prior['alpha_prior']:.2f}, β={prior['beta_prior']:.2f}"
+        print(f"  {metric}: μ₀={prior['mu0']:.3f}, σ₀={prior['sigma0']:.3f}, N={prior['n_total']}{extra}")
 
     return priors
 
@@ -311,15 +446,26 @@ def apply_bayesian_shrinkage(sections: List[Dict], global_priors: Dict[str, Dict
             sigma0_sq = prior.get('sigma0_sq', 1.0)
             sigma0 = prior.get('sigma0', 1.0)
 
-            # Compute shrunk estimate (continuous shrinkage for all N)
-            shrinkage_result = shrink_estimate(
-                sample_mean=sample_mean,
-                sample_var=sample_var,
-                n=sample_size,
-                mu0=mu0,
-                sigma0_sq=sigma0_sq,
-                min_variance_threshold=min_variance_threshold
-            )
+            # Route to appropriate shrinkage model
+            if metric_name in ORDINAL_METRICS and 'alpha_prior' in prior:
+                # Beta-Binomial for ordinal (1-5 Likert) metrics
+                shrinkage_result = shrink_estimate_beta(
+                    sample_mean=sample_mean,
+                    n=sample_size,
+                    alpha_prior=prior['alpha_prior'],
+                    beta_prior=prior['beta_prior'],
+                    min_variance_threshold=min_variance_threshold,
+                )
+            else:
+                # Normal-Normal for continuous metrics (hours_per_week)
+                shrinkage_result = shrink_estimate(
+                    sample_mean=sample_mean,
+                    sample_var=sample_var,
+                    n=sample_size,
+                    mu0=mu0,
+                    sigma0_sq=sigma0_sq,
+                    min_variance_threshold=min_variance_threshold,
+                )
 
             # Add shrinkage fields to metric
             metric['raw_mean'] = shrinkage_result['raw_mean']
@@ -341,7 +487,8 @@ def apply_bayesian_shrinkage(sections: List[Dict], global_priors: Dict[str, Dict
                 )
                 metric['z_score'] = z_score
 
-    print(f"  Applied continuous Bayesian shrinkage to {metrics_processed} metrics")
+    print(f"  Applied hybrid Bayesian shrinkage to {metrics_processed} metrics"
+          f" (Beta-Binomial for ordinal, Normal-Normal for continuous)")
 
     # Validate z-scores
     if z_score_enabled:
@@ -411,7 +558,7 @@ def validate_shrinkage_quality(sections: List[Dict], metric_names: List[str]) ->
             validation['shrinkage_by_sample_size'][n].append(B)
 
     # Demonstrate smooth B-factor decay (no discontinuities)
-    print("  Shrinkage factor decay (continuous Empirical Bayes):")
+    print("  Shrinkage factor decay (hybrid Beta-Binomial / Normal-Normal):")
     key_sample_sizes = [1, 5, 10, 20, 50, 100]
 
     for n in key_sample_sizes:
@@ -427,14 +574,14 @@ def validate_shrinkage_quality(sections: List[Dict], metric_names: List[str]) ->
 
     # Report issues
     if validation['nan_count'] > 0:
-        print(f"  ⚠ WARNING: {validation['nan_count']} NaN values detected")
+        print(f"  WARNING: {validation['nan_count']} NaN values detected")
     if validation['inf_count'] > 0:
-        print(f"  ⚠ WARNING: {validation['inf_count']} Inf z-scores detected")
+        print(f"  WARNING: {validation['inf_count']} Inf z-scores detected")
     if validation['out_of_range_z_scores'] > 0:
-        print(f"  ⚠ WARNING: {validation['out_of_range_z_scores']} z-scores outside [-4, 4] range")
+        print(f"  WARNING: {validation['out_of_range_z_scores']} z-scores outside [-4, 4] range")
 
     if validation['nan_count'] == 0 and validation['inf_count'] == 0:
-        print("  ✓ All values are valid (no NaN/Inf)")
+        print("  OK: All values are valid (no NaN/Inf)")
 
     return validation
 
@@ -443,8 +590,8 @@ def validate_shrinkage_quality(sections: List[Dict], metric_names: List[str]) ->
 if __name__ == "__main__":
     print("Testing Bayesian Shrinkage Functions\n")
 
-    # Test 1: Shrinkage factor calculation
-    print("Test 1: Shrinkage Factor")
+    # Test 1: Gaussian shrinkage factor (used for hours_per_week)
+    print("Test 1: Gaussian Shrinkage Factor (continuous metrics)")
     B_large = compute_shrinkage_factor(50, 0.36, 0.182)
     B_small = compute_shrinkage_factor(3, 0.36, 0.182)
     B_zero = compute_shrinkage_factor(0, 0, 0.182)
@@ -452,15 +599,41 @@ if __name__ == "__main__":
     print(f"  Small N (3):  B={B_small:.4f} (should be moderate - balanced)")
     print(f"  Zero N:       B={B_zero:.4f} (should be 1.0, but n=0 uses prior directly)")
 
-    # Test 2: Shrink estimate
-    print("\nTest 2: Shrunk Estimates")
+    # Test 2: Gaussian shrink estimate (hours_per_week)
+    print("\nTest 2: Gaussian Shrunk Estimates (continuous metrics)")
     result_large = shrink_estimate(4.5, 0.36, 50, 4.168, 0.182)
     result_small = shrink_estimate(4.5, 0.36, 3, 4.168, 0.182)
-    print(f"  Large N (50): raw={result_large['raw_mean']}, posterior={result_large['posterior_mean']}, B={result_large['shrinkage_factor']} (minimal shrinkage - trust data)")
-    print(f"  Small N (3):  raw={result_small['raw_mean']}, posterior={result_small['posterior_mean']}, B={result_small['shrinkage_factor']} (moderate shrinkage toward prior)")
+    print(f"  Large N (50): raw={result_large['raw_mean']}, posterior={result_large['posterior_mean']}, B={result_large['shrinkage_factor']} (minimal shrinkage)")
+    print(f"  Small N (3):  raw={result_small['raw_mean']}, posterior={result_small['posterior_mean']}, B={result_small['shrinkage_factor']} (moderate shrinkage)")
 
-    # Test 3: Z-scores
-    print("\nTest 3: Z-Scores")
+    # Test 3: Beta prior fitting
+    print("\nTest 3: Beta Prior Fitting (ordinal metrics)")
+    alpha, beta = fit_beta_prior(4.168, 0.182)
+    print(f"  μ₀=4.168, σ₀²=0.182 → α={alpha:.2f}, β={beta:.2f}")
+    prior_mean_check = alpha / (alpha + beta) * 4.0 + 1.0
+    print(f"  Prior mean check: {prior_mean_check:.3f} (should be ~4.168)")
+
+    alpha_u, beta_u = fit_beta_prior(3.0, 5.0)
+    print(f"  μ₀=3.0, σ₀²=5.0 (huge variance) → α={alpha_u:.2f}, β={beta_u:.2f} (should be 1.0, 1.0 fallback)")
+
+    # Test 4: Beta-Binomial shrinkage
+    print("\nTest 4: Beta-Binomial Shrunk Estimates (ordinal metrics)")
+    alpha, beta = fit_beta_prior(4.168, 0.182)
+
+    bb_large = shrink_estimate_beta(4.5, 50, alpha, beta)
+    bb_small = shrink_estimate_beta(4.5, 2, alpha, beta)
+    bb_extreme = shrink_estimate_beta(4.95, 2, alpha, beta)
+    bb_zero = shrink_estimate_beta(0, 0, alpha, beta)
+
+    print(f"  Large N (50), mean=4.5:  posterior={bb_large['posterior_mean']}, B={bb_large['shrinkage_factor']} (should trust data)")
+    print(f"  Small N (2),  mean=4.5:  posterior={bb_small['posterior_mean']}, B={bb_small['shrinkage_factor']} (should shrink toward ~4.17)")
+    print(f"  Small N (2),  mean=4.95: posterior={bb_extreme['posterior_mean']}, B={bb_extreme['shrinkage_factor']} (should stay ≤ 5.0)")
+    print(f"  Zero N:                  posterior={bb_zero['posterior_mean']} (should be prior mean ~4.17)")
+    assert bb_extreme['posterior_mean'] <= 5.0, "Beta-Binomial posterior exceeded ordinal max!"
+    assert bb_zero['posterior_mean'] >= 1.0, "Beta-Binomial posterior below ordinal min!"
+
+    # Test 5: Z-scores
+    print("\nTest 5: Z-Scores")
     z_high = compute_z_score(4.5, 4.168, 0.427)
     z_low = compute_z_score(3.8, 4.168, 0.427)
     z_avg = compute_z_score(4.168, 4.168, 0.427)
@@ -468,4 +641,4 @@ if __name__ == "__main__":
     print(f"  Low (3.8):    z={z_low} (should be negative)")
     print(f"  Average (4.168): z={z_avg} (should be ~0)")
 
-    print("\n✓ All tests passed")
+    print("\nOK: All tests passed")

@@ -111,7 +111,7 @@ class PrerequisiteFilter:
     def validate(self) -> None:
         """Validate filter parameters"""
         if self.enabled and not self.completed_courses:
-            print("  ⚠️  Warning: prerequisite filter enabled but no completed_courses provided")
+            print("  WARNING: prerequisite filter enabled but no completed_courses provided")
 
 
 @dataclass

@@ -1,10 +1,21 @@
-
 *v2.csv
 data/*
 dataslim/*
+
 # Sensitive files
 *.pem
 *.pdf
+
+# Editor / IDE
+.vscode/
+
+# Vendored assets (not needed in repo)
+DoodleCSS/
+QUICKSTART_WEBAPP_files/
+
+# Images
+*.png
+
 # Python
 __pycache__/
 *.pyc

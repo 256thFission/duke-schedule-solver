@@ -319,7 +319,7 @@ def aggregate(sections: List[Dict], config: Dict, evaluations: List[Dict] = None
         population_stats['global_priors'] = global_priors
         population_stats['validation'] = validation_results
     elif solver_enabled and not evaluations:
-        print("⚠ Warning: Solver enabled but no evaluations provided. Skipping Bayesian shrinkage.")
+        print("WARNING: Solver enabled but no evaluations provided. Skipping Bayesian shrinkage.")
 
     return {
         'sections': sections,

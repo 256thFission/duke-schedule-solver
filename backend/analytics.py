@@ -4,18 +4,19 @@ AWS S3 analytics module for Duke Schedule Solver.
 Tracks (all fire-and-forget — never raises to the caller):
   - Schedule generation events  → s3://BUCKET/events/solve/YYYY-MM-DD/<uuid>.json
   - Course removal reason events → s3://BUCKET/events/removal/YYYY-MM-DD/<uuid>.json
-  - Anonymized transcripts       → s3://BUCKET/transcripts/<uuid>.pdf  (consent-gated)
 
 Configuration via environment variables:
   ANALYTICS_BUCKET  — S3 bucket name (required; module is a no-op if unset)
   AWS_REGION        — defaults to us-east-1
 """
 
+import logging
 import os
 import json
 import uuid
-import traceback
 from datetime import datetime, timezone
+
+logger = logging.getLogger(__name__)
 
 try:
     import boto3
@@ -45,7 +46,7 @@ def _put(key: str, body: bytes, content_type: str) -> None:
             ContentType=content_type,
         )
     except Exception:
-        traceback.print_exc()
+        logger.exception("Failed to write analytics to S3")
 
 
 def log_solve_event(num_courses: int, total_credits: float) -> None:
@@ -77,25 +78,3 @@ def log_removal_event(course_id: str, reason: str, reason_text: str = "") -> Non
     }
     key = f"events/removal/{now.strftime('%Y-%m-%d')}/{uuid.uuid4()}.json"
     _put(key, json.dumps(event).encode(), "application/json")
-
-
-def save_transcript(content: bytes) -> bool:
-    """
-    Save an anonymized transcript PDF to S3.
-    Returns True on success, False on any failure.
-    Only call this when the user has explicitly consented.
-    """
-    if not _enabled():
-        return False
-    key = f"transcripts/{uuid.uuid4()}.pdf"
-    try:
-        _s3().put_object(
-            Bucket=ANALYTICS_BUCKET,
-            Key=key,
-            Body=content,
-            ContentType="application/pdf",
-        )
-        return True
-    except Exception:
-        traceback.print_exc()
-        return False

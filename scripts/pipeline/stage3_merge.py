@@ -236,14 +236,14 @@ def merge(normalized_data: Dict) -> List[Dict]:
     for match in successful_matches[:5]:
         if match['type'] in ['email_match', 'name_match']:
             method = match['match_method']
-            print(f"  ✓ {match['catalog_course']} ({match['normalized_course']}) + {match['catalog_instructor']} [{method}]")
+            print(f"  [OK] {match['catalog_course']} ({match['normalized_course']}) + {match['catalog_instructor']} [{method}]")
             print(f"    → Matched {match['num_evals']} evaluations")
         elif match['type'] == 'cross_list_match':
-            print(f"  ✓ {match['catalog_course']} + {match['catalog_instructor']} [cross-list]")
+            print(f"  [OK] {match['catalog_course']} + {match['catalog_instructor']} [cross-list]")
             print(f"    → Matched via cross-listing to: {match['matched_to_primary']}")
             print(f"    → Matched {match['num_evals']} evaluations")
         else:
-            print(f"  ✓ {match['catalog_course']} ({match['normalized_course']}) [course-only]")
+            print(f"  [OK] {match['catalog_course']} ({match['normalized_course']}) [course-only]")
             print(f"    → Matched {match['num_evals']} evaluations")
 
     # Write detailed failures to log file
@@ -256,16 +256,16 @@ def merge(normalized_data: Dict) -> List[Dict]:
         f.write("--- Match Failures ---\n")
         f.write(f"Course not in evaluations ({len(match_failures['course_not_in_evals'])} total):\n")
         for failure in match_failures['course_not_in_evals']:
-            f.write(f"  ✗ {failure['course']} → {failure['normalized']} (Instructor: {failure['instructor']})\n")
+            f.write(f"  [FAIL] {failure['course']} → {failure['normalized']} (Instructor: {failure['instructor']})\n")
 
         f.write(f"\nInstructor not found ({len(match_failures['instructor_not_found'])} total):\n")
         for failure in match_failures['instructor_not_found']:
-            f.write(f"  ✗ {failure['course']} ({failure['normalized_course']}) with {failure['instructor']}\n")
+            f.write(f"  [FAIL] {failure['course']} ({failure['normalized_course']}) with {failure['instructor']}\n")
             f.write(f"    → Normalized: {failure['normalized_instructor']}\n")
 
         f.write(f"\nUnknown instructor ({len(match_failures['unknown_instructor'])} total):\n")
         for failure in match_failures['unknown_instructor']:
-            f.write(f"  ✗ {failure['course']} ({failure['normalized_course']})\n")
+            f.write(f"  [FAIL] {failure['course']} ({failure['normalized_course']})\n")
 
     # Count match types
     email_matches = sum(1 for m in successful_matches if m.get('match_method') == 'email')

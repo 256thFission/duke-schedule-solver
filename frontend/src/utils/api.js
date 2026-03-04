@@ -14,13 +14,12 @@ export const api = {
    * @param {File} file - PDF file object
    * @returns {Promise<Object>} Transcript response with matched courses
    */
-  parseTranscript: async (file, matriculationYear = 'pre2025', saveForResearch = false) => {
+  parseTranscript: async (file, matriculationYear = 'pre2025') => {
     const formData = new FormData();
     formData.append('file', file);
 
     const params = new URLSearchParams({
       matriculation_year: matriculationYear,
-      save_for_research: saveForResearch,
     });
 
     // Don't manually set Content-Type — axios auto-sets it with the
