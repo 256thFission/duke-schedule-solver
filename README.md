@@ -1,8 +1,11 @@
 # Duke Schedule Solver
+Find the statistically optimal schedule for YOU (if you're a Duke student)
 
-Optimal course schedule generator for Duke University.
-Uses Binary Integer Programming (OR-Tools) to maximize a weighted combination
-of course quality metrics (from evaluations) subject to time/requirement constraints.
+This is how I got No 8:00 AM's, 2 days off, and all grad reqs filled while graduating a year early.
+
+You can view my writeup [here](https://open.substack.com/pub/thephilliplin/p/statistically-solving-the-liberal?utm_campaign=post-expanded-share&utm_medium=post%20viewer)
+
+Uses Binary Integer Programming + CPSAT to maximize of course quality metrics under time/ grad requirement constraints.
 
 ## Architecture
 
@@ -54,3 +57,4 @@ See [DEPLOY.md](DEPLOY.md) for EC2/Docker deployment instructions.
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
