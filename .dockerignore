@@ -8,6 +8,7 @@ node_modules
 frontend
 DoodleCSS
 data
+!data/processed/processed_courses.json
 dataslim/catalog.json
 dataslim/raw
 dataslim/course_evaluations

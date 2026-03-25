@@ -20,7 +20,7 @@ COPY backend/ backend/
 COPY config/ config/
 
 # Copy data (the only runtime-required file is processed_courses.json)
-COPY dataslim/processed/processed_courses.json dataslim/processed/processed_courses.json
+COPY data/processed/processed_courses.json data/processed/processed_courses.json
 
 # Python path: backend/ for local imports (schemas, utils), /app for scripts/
 ENV PYTHONPATH="/app/backend:/app"
