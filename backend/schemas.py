@@ -138,3 +138,63 @@ class RemovalRequest(BaseModel):
     course_id: str
     reason: str = Field(description="not_interested | cannot_take | not_helpful | other")
     reason_text: str = Field(default="", description="Free-text when reason == 'other'")
+
+
+# ── Friend-Fun-Class schemas ──
+
+class FriendParticipantReqs(BaseModel):
+    """Per-participant grad req info for friend-find."""
+    id: str
+    needed_attributes: List[str] = Field(default_factory=list)
+
+
+class FriendFindRequest(BaseModel):
+    """Request body for POST /friend-find-classes."""
+    blocked_times: List[List[int]] = Field(description="Union of all participants' blocked [start, end] intervals (absolute minutes)")
+    participants_needing_reqs: List[FriendParticipantReqs] = Field(default_factory=list, description="Participants who care about grad reqs")
+
+
+class FriendCourseSectionData(BaseModel):
+    """A section that fits the group's schedule."""
+    section_id: str
+    integer_schedule: List[List[int]]
+    day_indices: List[int]
+    instructor_name: str
+    schedule_display: str = Field(default="", description="Human-readable schedule")
+
+
+class FriendCourseResult(BaseModel):
+    """A course result from friend-find."""
+    course_id: str
+    title: str
+    sections: List[FriendCourseSectionData]
+    schedule_display: str = Field(default="", description="Representative schedule string")
+    quality: Optional[float] = None
+    difficulty: Optional[float] = None
+    interesting: Optional[float] = None
+    attributes: List[str] = Field(default_factory=list)
+    reqs_helped_count: int = 0
+    reqs_helped_for: List[str] = Field(default_factory=list, description="Participant IDs helped")
+
+
+class FriendFindResponse(BaseModel):
+    """Response from POST /friend-find-classes."""
+    results: List[FriendCourseResult] = Field(default_factory=list)
+    total: int = 0
+
+
+class CourseSectionInfo(BaseModel):
+    """Section info returned by GET /course-sections."""
+    section_number: str
+    integer_schedule: List[List[int]]
+    day_indices: List[int]
+    instructor_name: str
+    schedule_display: str
+    component: str = Field(default="")
+
+
+class CourseSectionsResponse(BaseModel):
+    """Response from GET /course-sections."""
+    course_id: str
+    title: str
+    sections: List[CourseSectionInfo] = Field(default_factory=list)

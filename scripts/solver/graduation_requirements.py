@@ -282,6 +282,7 @@ def _analyze_transcript(
     pipeline_data_path: str,
     attr_key: str,
     requirements_class: type,
+    historical_catalog: Dict[str, Dict[str, list]] = None,
 ):
     """
     Shared implementation for analyzing transcript requirements.
@@ -291,23 +292,36 @@ def _analyze_transcript(
         pipeline_data_path: Path to processed_courses.json
         attr_key: Which attribute set to read ('curr2000' or 'curr2025')
         requirements_class: GraduationRequirements or GraduationRequirements2025
+        historical_catalog: Optional dict of course_id → {"curr2000": [...], "curr2025": [...]}
+                            from historical_catalog.json (covers past semesters)
     """
-    with open(pipeline_data_path) as f:
-        data = json.load(f)
-
+    # Build attribute map from current-semester processed data
     course_attributes_map: Dict[str, Set[str]] = {}
-    for course in data.get('courses', []):
-        for section in course.get('sections', []):
-            course_id = section.get('course_id')
-            if not course_id:
-                continue
-            attributes_data = section.get('attributes', {})
-            if isinstance(attributes_data, dict):
-                attrs = attributes_data.get(attr_key, [])
+    try:
+        with open(pipeline_data_path) as f:
+            data = json.load(f)
+        for course in data.get('courses', []):
+            for section in course.get('sections', []):
+                course_id = section.get('course_id')
+                if not course_id:
+                    continue
+                attributes_data = section.get('attributes', {})
+                if isinstance(attributes_data, dict):
+                    attrs = attributes_data.get(attr_key, [])
+                    if attrs:
+                        if course_id not in course_attributes_map:
+                            course_attributes_map[course_id] = set()
+                        course_attributes_map[course_id].update(attrs)
+    except (FileNotFoundError, json.JSONDecodeError):
+        pass
+
+    # Overlay historical catalog (fills in courses missing from current semester)
+    if historical_catalog:
+        for cid, attrs_dict in historical_catalog.items():
+            if cid not in course_attributes_map:
+                attrs = attrs_dict.get(attr_key, [])
                 if attrs:
-                    if course_id not in course_attributes_map:
-                        course_attributes_map[course_id] = set()
-                    course_attributes_map[course_id].update(attrs)
+                    course_attributes_map[cid] = set(attrs)
 
     requirements = requirements_class()
     for course_id in transcript_courses:
@@ -320,17 +334,19 @@ def _analyze_transcript(
 def analyze_transcript_requirements(
     transcript_courses: List[str],
     pipeline_data_path: str,
+    historical_catalog: Dict[str, Dict[str, list]] = None,
 ) -> GraduationRequirements:
     """Analyze which Curriculum 2000 requirements have been fulfilled."""
-    return _analyze_transcript(transcript_courses, pipeline_data_path, 'curr2000', GraduationRequirements)
+    return _analyze_transcript(transcript_courses, pipeline_data_path, 'curr2000', GraduationRequirements, historical_catalog)
 
 
 def analyze_transcript_requirements_2025(
     transcript_courses: List[str],
     pipeline_data_path: str,
+    historical_catalog: Dict[str, Dict[str, list]] = None,
 ) -> GraduationRequirements2025:
     """Analyze which Curriculum 2025 requirements have been fulfilled."""
-    return _analyze_transcript(transcript_courses, pipeline_data_path, 'curr2025', GraduationRequirements2025)
+    return _analyze_transcript(transcript_courses, pipeline_data_path, 'curr2025', GraduationRequirements2025, historical_catalog)
 
 
 # HTML summary (for legacy Gradio UI — kept for backward compatibility)

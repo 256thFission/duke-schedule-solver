@@ -35,10 +35,13 @@ from schemas import (
     ScheduleResponse, ScheduleData, SectionData,
     GraduationRequirementsData, RequirementProgressData,
     RemovalRequest,
+    FriendFindRequest, FriendFindResponse, FriendCourseResult, FriendCourseSectionData,
+    CourseSectionsResponse, CourseSectionInfo,
 )
 from utils import (
     convert_frontend_weights, infer_class_year,
-    load_course_choices, load_course_credits, search_courses
+    load_course_choices, load_course_credits, search_courses,
+    load_historical_catalog
 )
 import analytics
 
@@ -67,7 +70,7 @@ app.add_middleware(
 # Constants
 
 PROJECT_ROOT = Path(__file__).parent.parent
-DATA_PATH = str(PROJECT_ROOT / "dataslim" / "processed" / "processed_courses.json")
+DATA_PATH = str(PROJECT_ROOT / "data" / "processed" / "processed_courses.json")
 
 
 # Endpoint 1: POST /parse-transcript
@@ -106,11 +109,12 @@ async def parse_transcript(
                 error="No courses found in transcript"
             )
 
-        # Load available courses from catalog
-        all_courses = load_course_choices(DATA_PATH)
-        all_courses_set = set(all_courses)
+        # Load historical catalog for transcript matching (covers past semesters).
+        # This is separate from DATA_PATH which is used ONLY by the solver.
+        historical = load_historical_catalog()
+        historical_set = set(historical.keys())
 
-        # Match extracted courses to catalog
+        # Match extracted courses to historical catalog
         matched = []
         unmatched = []
 
@@ -118,7 +122,7 @@ async def parse_transcript(
             # Convert "SUBJECT NUMBER" to "SUBJECT-NUMBER" format
             course_id = f"{course['subject']}-{course['number']}"
 
-            if course_id in all_courses_set:
+            if course_id in historical_set:
                 matched.append(course_id)
             else:
                 unmatched.append(course['full_code'])
@@ -133,9 +137,9 @@ async def parse_transcript(
                 is_2025 = matriculation_year == '2025plus'
 
                 if is_2025:
-                    grad_reqs = analyze_transcript_requirements_2025(matched, DATA_PATH)
+                    grad_reqs = analyze_transcript_requirements_2025(matched, DATA_PATH, historical)
                 else:
-                    grad_reqs = analyze_transcript_requirements(matched, DATA_PATH)
+                    grad_reqs = analyze_transcript_requirements(matched, DATA_PATH, historical)
 
                 needed_attrs = grad_reqs.get_needed_attributes()
 
@@ -432,6 +436,127 @@ async def track_removal(body: RemovalRequest) -> None:
         reason=body.reason,
         reason_text=body.reason_text,
     )
+
+
+# Endpoint 5: GET /course-sections
+
+@app.get("/course-sections", response_model=CourseSectionsResponse)
+async def get_course_sections(
+    course_id: str = Query(..., description="Course ID (e.g. COMPSCI-201)")
+) -> CourseSectionsResponse:
+    """Return sections with schedule info for a given course."""
+    from scripts.solver.time_utils import format_schedule_compact
+    try:
+        all_sections = load_sections(DATA_PATH)
+        matches = [s for s in all_sections if s.course_id == course_id]
+        if not matches:
+            return CourseSectionsResponse(course_id=course_id, title="", sections=[])
+
+        title = matches[0].title
+        section_infos = []
+        for s in matches:
+            sched_display = format_schedule_compact(s.integer_schedule, s.day_indices)
+            section_infos.append(CourseSectionInfo(
+                section_number=s.section_id.split("-")[-2] if s.section_id.count("-") >= 2 else s.section_id,
+                integer_schedule=[list(iv) for iv in s.integer_schedule],
+                day_indices=s.day_indices,
+                instructor_name=s.instructor_name,
+                schedule_display=sched_display,
+                component=s.component,
+            ))
+        return CourseSectionsResponse(course_id=course_id, title=title, sections=section_infos)
+    except Exception as e:
+        logger.error("Error getting course sections: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Endpoint 6: POST /friend-find-classes
+
+@app.post("/friend-find-classes", response_model=FriendFindResponse)
+async def friend_find_classes(req: FriendFindRequest) -> FriendFindResponse:
+    """Find courses that fit in all participants' free time."""
+    from scripts.solver.time_utils import intervals_overlap, format_schedule_compact
+    try:
+        all_sections = load_sections(DATA_PATH)
+        blocked = [tuple(iv) for iv in req.blocked_times]
+
+        # Group sections by course
+        from collections import defaultdict
+        course_sections: dict[str, list] = defaultdict(list)
+        for s in all_sections:
+            # Skip non-credit, independent study, etc.
+            if s.credits <= 0:
+                continue
+            flags = s.attribute_flags or {}
+            if flags.get('is_independent_study') or flags.get('is_tutorial') or flags.get('is_internship'):
+                continue
+            restrictions = s.enrollment_restrictions or {}
+            if restrictions.get('is_closed'):
+                continue
+            course_sections[s.course_id].append(s)
+
+        results = []
+        for course_id, sections in course_sections.items():
+            # Find sections that don't conflict with blocked times
+            fitting = []
+            for s in sections:
+                if not blocked or not intervals_overlap(s.integer_schedule, blocked):
+                    fitting.append(s)
+
+            if not fitting:
+                continue
+
+            # Use first fitting section as representative
+            rep = fitting[0]
+            attrs = rep.attributes
+
+            # Calculate reqs helped
+            reqs_helped_for = []
+            for p in req.participants_needing_reqs:
+                if any(a in p.needed_attributes for a in attrs):
+                    reqs_helped_for.append(p.id)
+
+            # Extract metrics (z-scores → raw-ish display values)
+            z = rep.z_scores
+            quality = z.get('overall_course_quality')
+            difficulty = z.get('course_difficulty')
+            interesting = z.get('intellectual_stimulation')
+
+            sched_display = format_schedule_compact(rep.integer_schedule, rep.day_indices)
+
+            section_datas = []
+            for s in fitting:
+                sd = format_schedule_compact(s.integer_schedule, s.day_indices)
+                sec_num = s.section_id.split("-")[-2] if s.section_id.count("-") >= 2 else s.section_id
+                section_datas.append(FriendCourseSectionData(
+                    section_id=sec_num,
+                    integer_schedule=[list(iv) for iv in s.integer_schedule],
+                    day_indices=s.day_indices,
+                    instructor_name=s.instructor_name,
+                    schedule_display=sd,
+                ))
+
+            results.append(FriendCourseResult(
+                course_id=course_id,
+                title=rep.title,
+                sections=section_datas,
+                schedule_display=sched_display,
+                quality=quality,
+                difficulty=difficulty,
+                interesting=interesting,
+                attributes=attrs,
+                reqs_helped_count=len(reqs_helped_for),
+                reqs_helped_for=reqs_helped_for,
+            ))
+
+        # Sort by quality descending (nulls last)
+        results.sort(key=lambda r: (r.quality is not None, r.quality or 0), reverse=True)
+
+        return FriendFindResponse(results=results, total=len(results))
+
+    except Exception as e:
+        logger.exception("Error in friend-find-classes")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # Health check

@@ -112,7 +112,7 @@ def infer_class_year(course_count: int) -> Optional[str]:
         return "senior"
 
 
-def load_course_choices(data_path: str = "dataslim/processed/processed_courses.json") -> List[str]:
+def load_course_choices(data_path: str = "data/processed/processed_courses.json") -> List[str]:
     """
     Load all available course IDs from processed course data.
 
@@ -143,7 +143,7 @@ def load_course_choices(data_path: str = "dataslim/processed/processed_courses.j
         return []
 
 
-def load_course_credits(data_path: str = "dataslim/processed/processed_courses.json") -> Dict[str, float]:
+def load_course_credits(data_path: str = "data/processed/processed_courses.json") -> Dict[str, float]:
     """
     Return {course_id: credit_value} for all courses.
 
@@ -166,6 +166,57 @@ def load_course_credits(data_path: str = "dataslim/processed/processed_courses.j
                 if c > credits_map.get(cid, 0.0):
                     credits_map[cid] = c
     return credits_map
+
+
+HISTORICAL_CATALOG_PATH = str(Path(__file__).parent.parent / "data" / "historical_catalog.json")
+
+
+def load_historical_catalog(
+    historical_path: str = HISTORICAL_CATALOG_PATH,
+    fallback_path: str = None,
+) -> Dict[str, Dict[str, List[str]]]:
+    """
+    Load the historical course catalog for transcript matching.
+
+    Returns:
+        Dict mapping course_id → {"curr2000": [...], "curr2025": [...]}
+        Used ONLY for transcript matching / grad-req analysis, never for the solver.
+    """
+    path = Path(historical_path)
+    if path.exists():
+        try:
+            with open(path) as f:
+                data = json.load(f)
+            return data.get("courses", {})
+        except Exception as e:
+            logger.warning("Error loading historical catalog: %s", e)
+
+    # Fallback: extract course_id → attributes from processed_courses.json
+    if fallback_path is None:
+        fallback_path = str(Path(__file__).parent.parent / "data" / "processed" / "processed_courses.json")
+
+    logger.info("Historical catalog not found; falling back to processed_courses.json")
+    try:
+        with open(fallback_path) as f:
+            data = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+    catalog: Dict[str, Dict[str, List[str]]] = {}
+    for course in data.get("courses", []):
+        for section in course.get("sections", []):
+            cid = section.get("course_id")
+            if not cid:
+                continue
+            attrs = section.get("attributes", {})
+            if cid not in catalog:
+                catalog[cid] = {"curr2000": [], "curr2025": []}
+            # Union of attributes across sections
+            for key in ("curr2000", "curr2025"):
+                existing = set(catalog[cid][key])
+                existing.update(attrs.get(key, []))
+                catalog[cid][key] = sorted(existing)
+    return catalog
 
 
 def search_courses(query: str, already_selected: List[str], all_courses: List[str], limit: int = 20) -> List[str]:

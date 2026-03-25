@@ -6,7 +6,7 @@
 
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? '/api' : 'http://localhost:8000');
 
 export const api = {
   /**
@@ -68,5 +68,31 @@ export const api = {
       reason,
       reason_text: reasonText,
     }).catch(() => {/* silently ignore */});
+  },
+
+  /**
+   * Get sections with schedule info for a course.
+   * @param {string} courseId - Course ID (e.g. "COMPSCI-201")
+   * @returns {Promise<Object>} Sections response
+   */
+  getCourseSections: async (courseId) => {
+    const { data } = await axios.get(`${API_BASE}/course-sections`, {
+      params: { course_id: courseId },
+    });
+    return data;
+  },
+
+  /**
+   * Find classes that fit all participants' free time.
+   * @param {Array} blockedTimes - [[start, end], ...] absolute minutes
+   * @param {Array} participantsNeedingReqs - [{id, needed_attributes}, ...]
+   * @returns {Promise<Object>} Friend find response
+   */
+  friendFindClasses: async (blockedTimes, participantsNeedingReqs = []) => {
+    const { data } = await axios.post(`${API_BASE}/friend-find-classes`, {
+      blocked_times: blockedTimes,
+      participants_needing_reqs: participantsNeedingReqs,
+    });
+    return data;
   },
 };

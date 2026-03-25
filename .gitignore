@@ -1,12 +1,18 @@
-*v2.csv
+*.csv
+!data/*.csv
+*.har
 data/*
+!data/.gitkeep
 dataslim/*
+.venv/
 
 # Sensitive files
 *.pem
+*.key
 *.pdf
 .env
 .env.*
+!.env.example
 
 # Claude Code
 .claude/
@@ -17,6 +23,9 @@ Thumbs.db
 
 # Editor / IDE
 .vscode/
+.idea/
+*.swp
+*.swo
 
 # Vendored assets (not needed in repo)
 DoodleCSS/
@@ -37,3 +46,25 @@ __pycache__/
 dist/
 build/
 logs/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node.js
+node_modules/
+*.log
+npm-debug.log*
+
+# Frontend build
+dist/
+build/
+
+# Database files
+*.sqlite
+*.sqlite3
+*.db
+
+# Temporary files
+*.tmp
+*.bak
+*.~*
