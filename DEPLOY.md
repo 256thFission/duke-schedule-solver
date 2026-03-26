@@ -6,14 +6,14 @@ Single **AWS EC2** instance running everything: nginx serves the frontend static
 
 | Component | Details |
 |-----------|---------|
-| **Instance** | `<YOUR_INSTANCE_ID>` — `t3.small`, Ubuntu 22.04 |
-| **Elastic IP** | `<YOUR_ELASTIC_IP>` (static, persists across restarts) |
-| **Domain** | `<YOUR_DOMAIN>` |
-| **Frontend** | `https://<YOUR_DOMAIN>` (nginx with SSL) |
+| **Instance** | `i-0dfeeeee71a452c9d` — `t3.small`, Ubuntu 22.04 |
+| **Elastic IP** | `52.205.23.123` (static, persists across restarts) |
+| **Domain** | `dukesolver.philliplin.dev` |
+| **Frontend** | `https://dukesolver.philliplin.dev` (nginx with SSL) |
 | **Backend API** | Docker container on port 8000, proxied by nginx |
 | **SSL Certificate** | Let's Encrypt (auto-renews via certbot) |
-| **Key pair** | `<YOUR_KEY_NAME>` (local: `<YOUR_KEY_PATH>`) |
-| **Security group** | `<YOUR_SECURITY_GROUP>` — ports 22, 80, 443, 8000 |
+| **Key pair** | `duke-solver-key` (local: `~/.ssh/id_ed25519`) |
+| **Security group** | `sg-0a02026a8cc6307a9` — ports 22, 80, 443, 8000 |
 
 ---
 
@@ -31,11 +31,11 @@ rsync -avz --progress \
   --exclude='dataslim/catalog.json' --exclude='dataslim/raw' \
   --exclude='dataslim/course_evaluations' --exclude='*.pdf' \
   --exclude='.vscode' --exclude='.claude' --exclude='QUICKSTART_WEBAPP_files' \
-  -e "ssh -i <YOUR_KEY_PATH>" \
-  ./ ubuntu@<YOUR_ELASTIC_IP>:~/duke-schedule-solver/
+  -e "ssh -i ~/.ssh/id_ed25519" \
+  ./ ubuntu@52.205.23.123:~/duke-schedule-solver/
 
 # 2. Rebuild and restart the Docker container
-ssh -i <YOUR_KEY_PATH> ubuntu@<YOUR_ELASTIC_IP> "cd ~/duke-schedule-solver && \
+ssh -i ~/.ssh/id_ed25519 ubuntu@52.205.23.123 "cd ~/duke-schedule-solver && \
   sudo docker build -t duke-solver-api . && \
   sudo docker stop duke-solver && sudo docker rm duke-solver && \
   sudo docker run -d --name duke-solver --restart unless-stopped \
@@ -48,13 +48,13 @@ ssh -i <YOUR_KEY_PATH> ubuntu@<YOUR_ELASTIC_IP> "cd ~/duke-schedule-solver && \
 ```bash
 # 1. Build the frontend with the production API URL
 cd frontend
-VITE_API_URL=https://<YOUR_DOMAIN> npx vite build
+VITE_API_URL=https://dukesolver.philliplin.dev npx vite build
 
 # 2. Upload the built files to EC2
 rsync -avz --delete \
-  -e "ssh -i <YOUR_KEY_PATH>" \
+  -e "ssh -i ~/.ssh/id_ed25519" \
   dist/ \
-  ubuntu@<YOUR_ELASTIC_IP>:~/frontend-dist/
+  ubuntu@52.205.23.123:~/frontend-dist/
 ```
 
 No nginx restart needed — it serves from `~/frontend-dist/` automatically.
@@ -63,19 +63,19 @@ No nginx restart needed — it serves from `~/frontend-dist/` automatically.
 
 ```bash
 # 1. Upload the new processed_courses.json and historical_catalog.json
-scp -i <YOUR_KEY_PATH> \
+scp -i ~/.ssh/id_ed25519 \
   dataslim/processed/processed_courses.json \
-  ubuntu@<YOUR_ELASTIC_IP>:~/duke-schedule-solver/dataslim/processed/
-scp -i <YOUR_KEY_PATH> \
+  ubuntu@52.205.23.123:~/duke-schedule-solver/dataslim/processed/
+scp -i ~/.ssh/id_ed25519 \
   data/historical_catalog.json \
-  ubuntu@<YOUR_ELASTIC_IP>:~/duke-schedule-solver/data/
+  ubuntu@52.205.23.123:~/duke-schedule-solver/data/
 
 # 2. Rebuild and restart Docker (data is baked into the image)
-ssh -i <YOUR_KEY_PATH> ubuntu@<YOUR_ELASTIC_IP> "cd ~/duke-schedule-solver && \
+ssh -i ~/.ssh/id_ed25519 ubuntu@52.205.23.123 "cd ~/duke-schedule-solver && \
   sudo docker build -t duke-solver-api . && \
   sudo docker stop duke-solver && sudo docker rm duke-solver && \
   sudo docker run -d --name duke-solver --restart unless-stopped \
-    -p 8000:8000 -e ALLOWED_ORIGINS='https://<YOUR_DOMAIN>' -e UVICORN_WORKERS=2 \
+    -p 8000:8000 -e ALLOWED_ORIGINS='https://dukesolver.philliplin.dev' -e UVICORN_WORKERS=2 \
     duke-solver-api"
 ```
 
@@ -85,22 +85,22 @@ ssh -i <YOUR_KEY_PATH> ubuntu@<YOUR_ELASTIC_IP> "cd ~/duke-schedule-solver && \
 
 ### Check if backend is running
 ```bash
-ssh -i <YOUR_KEY_PATH> ubuntu@<YOUR_ELASTIC_IP> "sudo docker ps"
+ssh -i ~/.ssh/id_ed25519 ubuntu@52.205.23.123 "sudo docker ps"
 ```
 
 ### View backend logs
 ```bash
-ssh -i <YOUR_KEY_PATH> ubuntu@<YOUR_ELASTIC_IP> "sudo docker logs duke-solver --tail 50"
+ssh -i ~/.ssh/id_ed25519 ubuntu@52.205.23.123 "sudo docker logs duke-solver --tail 50"
 ```
 
 ### Check nginx status
 ```bash
-ssh -i <YOUR_KEY_PATH> ubuntu@<YOUR_ELASTIC_IP> "sudo systemctl status nginx"
+ssh -i ~/.ssh/id_ed25519 ubuntu@52.205.23.123 "sudo systemctl status nginx"
 ```
 
 ### Test API health
 ```bash
-curl https://<YOUR_DOMAIN>/
+curl https://dukesolver.philliplin.dev/
 # Returns: {"status":"healthy","service":"Duke Schedule Solver API","version":"1.0.0"}
 ```
 
@@ -141,8 +141,8 @@ curl https://<YOUR_DOMAIN>/
 SSL certificates auto-renew via certbot timer:
 ```bash
 # Check renewal timer status
-ssh -i <YOUR_KEY_PATH> ubuntu@<YOUR_ELASTIC_IP> "sudo systemctl status certbot.timer"
+ssh -i ~/.ssh/id_ed25519 ubuntu@52.205.23.123 "sudo systemctl status certbot.timer"
 
 # Test renewal (dry run)
-ssh -i <YOUR_KEY_PATH> ubuntu@<YOUR_ELASTIC_IP> "sudo certbot renew --dry-run"
+ssh -i ~/.ssh/id_ed25519 ubuntu@52.205.23.123 "sudo certbot renew --dry-run"
 ```
