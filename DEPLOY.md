@@ -62,10 +62,13 @@ No nginx restart needed — it serves from `~/frontend-dist/` automatically.
 ### Update Data (New Semester / Pipeline Re-run)
 
 ```bash
-# 1. Upload the new processed_courses.json
+# 1. Upload the new processed_courses.json and historical_catalog.json
 scp -i <YOUR_KEY_PATH> \
   dataslim/processed/processed_courses.json \
   ubuntu@<YOUR_ELASTIC_IP>:~/duke-schedule-solver/dataslim/processed/
+scp -i <YOUR_KEY_PATH> \
+  data/historical_catalog.json \
+  ubuntu@<YOUR_ELASTIC_IP>:~/duke-schedule-solver/data/
 
 # 2. Rebuild and restart Docker (data is baked into the image)
 ssh -i <YOUR_KEY_PATH> ubuntu@<YOUR_ELASTIC_IP> "cd ~/duke-schedule-solver && \

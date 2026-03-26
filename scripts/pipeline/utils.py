@@ -206,7 +206,7 @@ def normalize_course_code(subject: str, catalog_nbr: str = None) -> str:
     """
     # If catalog_nbr provided, simple case
     if catalog_nbr is not None:
-        return f"{subject}-{catalog_nbr}"
+        return f"{subject.strip().upper()}-{catalog_nbr.strip().upper()}"
 
     # Otherwise parse the full course code
     course_code = subject

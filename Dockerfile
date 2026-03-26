@@ -19,8 +19,9 @@ COPY scripts/ scripts/
 COPY backend/ backend/
 COPY config/ config/
 
-# Copy data (the only runtime-required file is processed_courses.json)
+# Copy data: processed_courses.json for the solver, historical_catalog.json for transcript matching
 COPY data/processed/processed_courses.json data/processed/processed_courses.json
+COPY data/historical_catalog.json data/historical_catalog.json
 
 # Python path: backend/ for local imports (schemas, utils), /app for scripts/
 ENV PYTHONPATH="/app/backend:/app"

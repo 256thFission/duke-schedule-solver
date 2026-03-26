@@ -19,6 +19,7 @@ from fastapi import FastAPI, File, UploadFile, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from scripts.extract_transcript_courses import extract_courses_from_transcript
+from scripts.pipeline.utils import normalize_course_code
 from scripts.solver.model import load_sections, prefilter_sections, ScheduleSolver
 from scripts.solver.config import (
     SolverConfig, CourseFilters, DaysOffConstraint,
@@ -112,18 +113,32 @@ async def parse_transcript(
         # Load historical catalog for transcript matching (covers past semesters).
         # This is separate from DATA_PATH which is used ONLY by the solver.
         historical = load_historical_catalog()
-        historical_set = set(historical.keys())
+
+        # Build normalized lookup: catalog keys like "JPN-204S" normalize to
+        # "JPN-204" so they match transcript entries which omit suffixes.
+        norm_to_catalog_key = {}
+        for key in historical.keys():
+            nk = normalize_course_code(key)
+            if nk not in norm_to_catalog_key:
+                norm_to_catalog_key[nk] = key
+            else:
+                logger.debug("Catalog key collision: %s and %s both normalize to %s; keeping %s",
+                             key, norm_to_catalog_key[nk], nk, norm_to_catalog_key[nk])
 
         # Match extracted courses to historical catalog
         matched = []
         unmatched = []
 
         for course in extracted_courses:
+            if 'subject' not in course or 'number' not in course:
+                logger.warning("Malformed course entry from transcript extractor: %s", course)
+                continue
             # Convert "SUBJECT NUMBER" to "SUBJECT-NUMBER" format
             course_id = f"{course['subject']}-{course['number']}"
+            norm_id = normalize_course_code(course_id)
 
-            if course_id in historical_set:
-                matched.append(course_id)
+            if norm_id in norm_to_catalog_key:
+                matched.append(norm_to_catalog_key[norm_id])
             else:
                 unmatched.append(course['full_code'])
 
