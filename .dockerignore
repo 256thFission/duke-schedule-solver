@@ -9,6 +9,7 @@ frontend
 DoodleCSS
 data
 !data/processed/processed_courses.json
+!data/historical_catalog.json
 dataslim/catalog.json
 dataslim/raw
 dataslim/course_evaluations
